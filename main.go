@@ -25,19 +25,25 @@ func main() {
 	webcam, _ := gocv.OpenVideoCapture(0)
 	defer webcam.Close()
 
-	window := gocv.NewWindow("AprilTag")
+	window := gocv.NewWindow("Webcam")
 	defer window.Close()
+	projector := gocv.NewWindow("Projection")
+	defer projector.Close()
+	fullscreen := true
 
 	img := gocv.NewMat()
 	defer img.Close()
+	x, y := 1920, 1080
+	projection := gocv.NewMatWithSize(y, x, gocv.MatTypeCV8UC3)
+	defer projection.Close()
 
 	fs := gocv.NewFileStorage()
 	defer fs.Close()
 
 	data := []float64{
-		2.7446652529921467, 0.19799366932629123, -1584.4781742467537,
-		-0.0060984174295913626, 2.9426603187621247, -818.4341619951682,
-		-2.0331732694873542e-05, 0.0001549515645058243, 1,
+1.029663454070325, 0.07344280176806914, -594.1867678990769,
+-0.0033702581123178843, 1.1029102656827598, -305.7160385944432,
+-1.3740084606909863e-05, 0.000174535417726654, 1,
     	}
 	
     	homography := gocv.NewMatWithSize(3, 3, gocv.MatTypeCV64F)
@@ -52,6 +58,7 @@ func main() {
 		if ok := webcam.Read(&img); !ok || img.Empty() {
 			continue
 		}
+		projection.SetTo(gocv.NewScalar(0, 0, 0, 0))
 
 		// Convert to grayscale
 		gray := gocv.NewMat()
@@ -76,18 +83,14 @@ func main() {
 				image.Pt(int(d.corners[2][0]), int(d.corners[2][1])),
 				image.Pt(int(d.corners[3][0]), int(d.corners[3][1])),
 			}
-			pv := gocv.NewPointVectorFromPoints(points)
-			rect := gocv.BoundingRect(pv)
-			fmt.Println(d.id, center, d.corners)
 			gocv.Circle(&img, center, 5, color.RGBA{0, 255, 0, 0}, 2)
-			gocv.Rectangle(&img, rect, color.RGBA{0, 255, 0, 0}, 2)
 			gocv.PutText(&img, fmt.Sprintf("ID %d", d.id), center, gocv.FontHersheyPlain, 1.2, color.RGBA{255, 0, 0, 0}, 2)
 			// point order seems to be: LLHC, LRHC, URHC, ULHC, stable through rotation (!)
 			// todo: is that true for all tags?
-			//gocv.Circle(&img, points[0], 5, color.RGBA{255, 0, 0, 0}, 2)
-			//gocv.Circle(&img, points[1], 5, color.RGBA{255, 0, 0, 0}, 2)
-			//gocv.Circle(&img, points[2], 5, color.RGBA{255, 0, 0, 0}, 2)
-			//gocv.Circle(&img, points[3], 5, color.RGBA{255, 0, 0, 0}, 2)
+			gocv.Circle(&img, points[0], 5, color.RGBA{255, 0, 0, 0}, 2)
+			gocv.Circle(&img, points[1], 5, color.RGBA{255, 0, 0, 0}, 2)
+			gocv.Circle(&img, points[2], 5, color.RGBA{255, 0, 0, 0}, 2)
+			gocv.Circle(&img, points[3], 5, color.RGBA{255, 0, 0, 0}, 2)
 
 			points2f := []gocv.Point2f{
 				{X:float32(d.corners[0][0]), Y:float32(d.corners[0][1])},
@@ -102,14 +105,21 @@ func main() {
 			dstPoints := gocv.NewPointVectorFromMat(projectionPoints)
 			polygons := gocv.NewPointsVector()
 			polygons.Append(dstPoints)
-			gocv.FillPoly(&img, polygons, color.RGBA{R: 255, A: 255})
-			fmt.Println(pv2f.ToPoints())
-			fmt.Println(dstPoints.ToPoints())
+			gocv.FillPoly(&projection, polygons, color.RGBA{R: 255, A: 255})
 		}
 
 		window.IMShow(img)
+		projector.IMShow(projection)
 		if window.WaitKey(1) == 27 {
 			break // ESC to quit
+		}
+		if projector.WaitKey(1) == 102 { // f
+			fullscreen = !fullscreen
+			if fullscreen {
+			    projector.SetWindowProperty(gocv.WindowPropertyFullscreen, gocv.WindowFullscreen)
+			} else {
+			    projector.SetWindowProperty(gocv.WindowPropertyFullscreen, gocv.WindowNormal)
+			}
 		}
 	}
 }

@@ -19,18 +19,20 @@ func main() {
 	defer img.Close()
 
 	patternSize := image.Pt(9, 6) // inner corners
-	squareSize := 200 // pixels
-	var projectorPoints []gocv.Point2f
-    	for y := 0; y < patternSize.Y; y++ {
-    	    for x := 0; x < patternSize.X; x++ {
-		projectorPoints = append(projectorPoints, gocv.Point2f{
-			X: float32(x*squareSize),
-			Y: float32(y*squareSize),
-		})
-    	    }
-    	}
 
-	points := gocv.NewMatFromPoint2fVector(gocv.NewPoint2fVectorFromPoints(projectorPoints), true)
+	squarePoints := func(size int) []gocv.Point2f {
+		var pts []gocv.Point2f
+    		for y := 0; y < patternSize.Y; y++ {
+    		    for x := 0; x < patternSize.X; x++ {
+	    	    	pts = append(pts, gocv.Point2f{
+    	 	   		X: float32(x*size),
+    	 	   		Y: float32(y*size),
+    	 	   	})
+    		    }
+    		}
+		return pts
+	}
+
 	var homography gocv.Mat
 	for {
 		if ok := webcam.Read(&img); !ok || img.Empty() {
@@ -56,9 +58,10 @@ func main() {
 			//gocv.NewTermCriteria(gocv.Count|gocv.EPS, 30, 0.1))
 		mask := gocv.NewMat()
 		defer mask.Close()
-		fmt.Println(gocv.NewPoint2fVectorFromMat(corners).ToPoints())
-		fmt.Println(gocv.NewPoint2fVectorFromMat(points).ToPoints())
-		fmt.Println(points.Total())
+		cornerPts := gocv.NewPoint2fVectorFromMat(corners).ToPoints()
+		size := cornerPts[26].X - cornerPts[25].X
+		projectorPoints := squarePoints(int(size))
+		points := gocv.NewMatFromPoint2fVector(gocv.NewPoint2fVectorFromPoints(projectorPoints), true)
 		h := gocv.FindHomography(
 			corners,
 			points,
@@ -70,8 +73,9 @@ func main() {
 		)
 		fmt.Println("Homography matrix:\n", h)
 		homography = h
-		//break
+		break
 
+/*
 		pts := gocv.NewPoint2fVectorFromMat(corners).ToPoints()
 		for _, p := range pts {
 			gocv.Circle(&img, image.Pt(int(p.X), int(p.Y)), 5, color.RGBA{255, 0, 0, 0}, 2)
@@ -88,6 +92,12 @@ func main() {
 		window.IMShow(img)
 		if window.WaitKey(1) == 27 {
 			break // ESC to quit
+		}
+*/
+	}
+	for i := 0; i<3; i++ {
+		for j := 0; j<3; j++ {
+			fmt.Println(homography.GetDoubleAt(i, j))
 		}
 	}
 	/*

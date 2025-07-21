@@ -24,16 +24,18 @@ func main() {
 	// Start Guile
 	C.init_guile()
 
-	// Load a Scheme file
-	C.load_scheme_file(C.CString("script.scm"))
+	// loads minikanren
+	C.load_scheme_file(C.CString("datalog.scm"))
 
 	// Call a Scheme function with 1 argument
-	input := C.scm_from_int(42)
-	result := C.call_scheme_function_1(C.CString("my-func"), input)
+	cs := C.CString("(run* (x) (disj (equalo x 5) (equalo x 6)))")
+	defer C.free(unsafe.Pointer(cs))
+	input := C.scm_from_utf8_string(cs)
+	result := C.call_scheme_function_1(C.CString("eval-string"), input)
 
-	// Convert result to int and print
 	goResult := C.scm_to_int(result)
 	fmt.Println("Scheme returned:", goResult)
+	panic("done")
 	// end test to call guile scheme from go
 
 	webcam, _ := gocv.OpenVideoCapture(0)

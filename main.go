@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"math"
 	"unsafe"
 
 	"gocv.io/x/gocv"
@@ -24,11 +25,11 @@ func scm_point(p image.Point) C.SCM {
 	return C.scm_cons(C.scm_from_int(C.int(p.X)), C.scm_from_int(C.int(p.Y)))
 }
 
-func scm_sendPage(id int, ulhc, urhc, llhc, lrhc image.Point) {
+func scm_sendPage(id int, ulhc, urhc, llhc, lrhc image.Point, rotation float64) {
 	fname := C.CString("page-found")
 	defer C.free(unsafe.Pointer(fname))
 	f := C.scm_variable_ref(C.scm_c_lookup(fname))
-	C.scm_call_5(f, C.scm_from_int(C.int(id)), scm_point(ulhc), scm_point(urhc), scm_point(llhc), scm_point(lrhc))
+	C.scm_call_6(f, C.scm_from_int(C.int(id)), scm_point(ulhc), scm_point(urhc), scm_point(llhc), scm_point(lrhc), C.scm_from_double(C.double(rotation)))
 }
 
 func main() {
@@ -104,9 +105,9 @@ func main() {
 			gocv.PutText(&img, fmt.Sprintf("ID %d", d.id), center, gocv.FontHersheyPlain, 1.2, color.RGBA{255, 0, 0, 0}, 2)
 			// point order seems to be: LLHC, LRHC, URHC, ULHC, stable through rotation (!)
 			// todo: is that true for all tags?
-			gocv.Circle(&img, points[0], 5, color.RGBA{255, 0, 0, 0}, 2)
-			gocv.Circle(&img, points[1], 5, color.RGBA{255, 0, 0, 0}, 2)
-			gocv.Circle(&img, points[2], 5, color.RGBA{255, 0, 0, 0}, 2)
+			//gocv.Circle(&img, points[0], 5, color.RGBA{255, 0, 0, 0}, 2)
+			//gocv.Circle(&img, points[1], 5, color.RGBA{255, 0, 0, 0}, 2)
+			//gocv.Circle(&img, points[2], 5, color.RGBA{255, 0, 0, 0}, 2)
 			gocv.Circle(&img, points[3], 5, color.RGBA{255, 0, 0, 0}, 2)
 
 			points2f := []gocv.Point2f{
@@ -123,7 +124,16 @@ func main() {
 			polygons := gocv.NewPointsVector()
 			polygons.Append(dstPoints)
 			gocv.FillPoly(&projection, polygons, color.RGBA{R: 255, A: 255})
-			scm_sendPage(int(d.id), points[3], points[2], points[0], points[1])
+
+			dx := float64(points[2].X - points[3].X)
+			dy := float64(points[2].Y - points[3].Y)
+			angle := math.Atan2(dy, dx)
+			if angle < 0 {
+				angle += 2 * math.Pi
+			}
+			degrees := angle * 180 / math.Pi
+
+			scm_sendPage(int(d.id), points[3], points[2], points[0], points[1], degrees)
 		}
 
 		gocv.Rectangle(&projection, image.Rect(0, 0, x, y), color.RGBA{255,255,255,255}, 2)

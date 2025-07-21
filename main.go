@@ -8,7 +8,7 @@ package main
 #include "../apriltag/apriltag.h"
 #include "../apriltag/tagStandard41h12.h"
 #include <stdlib.h>
-#include "scheme.h"
+#include <libguile.h>
 */
 import "C"
 import (
@@ -20,23 +20,20 @@ import (
 	"gocv.io/x/gocv"
 )
 
+func scm_point(p image.Point) C.SCM {
+	return C.scm_cons(C.scm_from_int(C.int(p.X)), C.scm_from_int(C.int(p.Y)))
+}
+
+func scm_sendPage(id int, ulhc, urhc, llhc, lrhc image.Point) {
+	fname := C.CString("page-found")
+	defer C.free(unsafe.Pointer(fname))
+	f := C.scm_variable_ref(C.scm_c_lookup(fname))
+	C.scm_call_5(f, C.scm_from_int(C.int(id)), scm_point(ulhc), scm_point(urhc), scm_point(llhc), scm_point(lrhc))
+}
+
 func main() {
-	// Start Guile
-	C.init_guile()
-
-	// loads minikanren
-	C.load_scheme_file(C.CString("datalog.scm"))
-
-	// Call a Scheme function with 1 argument
-	cs := C.CString("(run* (x) (disj (equalo x 5) (equalo x 6)))")
-	defer C.free(unsafe.Pointer(cs))
-	input := C.scm_from_utf8_string(cs)
-	result := C.call_scheme_function_1(C.CString("eval-string"), input)
-
-	goResult := C.scm_to_int(result)
-	fmt.Println("Scheme returned:", goResult)
-	panic("done")
-	// end test to call guile scheme from go
+	C.scm_init_guile()
+	C.scm_c_primitive_load(C.CString("test.scm"))
 
 	webcam, _ := gocv.OpenVideoCapture(0)
 	defer webcam.Close()
@@ -126,6 +123,7 @@ func main() {
 			polygons := gocv.NewPointsVector()
 			polygons.Append(dstPoints)
 			gocv.FillPoly(&projection, polygons, color.RGBA{R: 255, A: 255})
+			scm_sendPage(int(d.id), points[3], points[2], points[0], points[1])
 		}
 
 		gocv.Rectangle(&projection, image.Rect(0, 0, x, y), color.RGBA{255,255,255,255}, 2)

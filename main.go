@@ -126,6 +126,7 @@ func main() {
 			gocv.FillPoly(&projection, polygons, color.RGBA{R: 255, A: 255})
 		}
 
+		gocv.Rectangle(&projection, image.Rect(0, 0, x, y), color.RGBA{255,255,255,255}, 2)
 		window.IMShow(img)
 		projector.IMShow(projection)
 		if window.WaitKey(1) == 27 {

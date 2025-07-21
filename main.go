@@ -3,6 +3,7 @@ package main
 /*
 #cgo CFLAGS: -I../apriltag
 #cgo LDFLAGS: -L../apriltag/build -lapriltag
+#cgo pkg-config: opencv4
 
 #include "detect_tags.h"
 #include "../apriltag/apriltag.h"
@@ -57,9 +58,9 @@ func main() {
 	defer fs.Close()
 
 	data := []float64{
-1.428630648645262, 0.13866375250350543, -597.7759877550823,
--0.006428129276365852, 1.5473156919851185, -313.4532000605341,
--1.1460179469641729e-05, 0.0001702233028236969, 1,
+1.422374988730949, 0.13439035308003228, -589.9962751807983,
+-0.00744007547773715, 1.5367645308852576, -288.2280970029973,
+-1.127043317257658e-05, 0.0001650885739257573, 1,
     	}
 	
     	homography := gocv.NewMatWithSize(3, 3, gocv.MatTypeCV64F)

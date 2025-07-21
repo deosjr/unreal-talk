@@ -33,7 +33,9 @@ func main() {
 
 	img := gocv.NewMat()
 	defer img.Close()
-	x, y := 1920, 1080
+	// calibration pattern fullscreen fills projector dimensions
+	// projection fullscreen should match those dimensions!
+	x, y := 1280, 720
 	projection := gocv.NewMatWithSize(y, x, gocv.MatTypeCV8UC3)
 	defer projection.Close()
 
@@ -41,9 +43,9 @@ func main() {
 	defer fs.Close()
 
 	data := []float64{
-1.4278061986826285, 0.12211516572981373, -675.4491964319097,
--0.004947863817419483, 1.5273173353701337, -390.3351994799858,
--1.0755690467340253e-05, 0.00016574757933757663, 1,
+1.428630648645262, 0.13866375250350543, -597.7759877550823,
+-0.006428129276365852, 1.5473156919851185, -313.4532000605341,
+-1.1460179469641729e-05, 0.0001702233028236969, 1,
     	}
 	
     	homography := gocv.NewMatWithSize(3, 3, gocv.MatTypeCV64F)

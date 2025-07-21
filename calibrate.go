@@ -46,8 +46,8 @@ func main() {
 	chesswindow.IMShow(generateChessboard(squareSize, cols, rows))
 
 	var projectorPoints []gocv.Point2f
-	for y := 0; y < patternSize.Y; y++ {
-	    for x := 0; x < patternSize.X; x++ {
+	for y := 1; y <= patternSize.Y; y++ {
+	    for x := 1; x <= patternSize.X; x++ {
     	    	projectorPoints = append(projectorPoints, gocv.Point2f{
  	   		X: float32(x*squareSize),
  	   		Y: float32(y*squareSize),

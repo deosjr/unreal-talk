@@ -41,9 +41,9 @@ func main() {
 	defer fs.Close()
 
 	data := []float64{
-1.029663454070325, 0.07344280176806914, -594.1867678990769,
--0.0033702581123178843, 1.1029102656827598, -305.7160385944432,
--1.3740084606909863e-05, 0.000174535417726654, 1,
+1.4278061986826285, 0.12211516572981373, -675.4491964319097,
+-0.004947863817419483, 1.5273173353701337, -390.3351994799858,
+-1.0755690467340253e-05, 0.00016574757933757663, 1,
     	}
 	
     	homography := gocv.NewMatWithSize(3, 3, gocv.MatTypeCV64F)
@@ -64,6 +64,8 @@ func main() {
 		gray := gocv.NewMat()
 		gocv.CvtColor(img, &gray, gocv.ColorBGRToGray)
 		defer gray.Close()
+		// TODO: perhaps transform like calibrate does into black/white threshold?
+		// obviously without inversion of black/white!
 
 		data := gray.ToBytes()
 

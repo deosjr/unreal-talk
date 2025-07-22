@@ -15,14 +15,18 @@ Second attempt at building a Dynamicland style environment
 Golang is the main entry point. It uses opencv to interface with the camera and draw windows.
 Go uses apriltags via CGO to detect tags and sends information about them to Guile.
 Guile runs realtalk and manages claim/wish/when model.
+At start-up time, Go sends an image pointer to Guile for it to draw on.
+
 Each interaction between Go and Guile is one full datalog fixpoint run.
-At the end of that interaction, Guile writes an image and returns to the Golang caller.
-That then reads the image and blits it to the projection window.
+During fixpoint, Guile will draw on the image buffer.
+At the end of that interaction, Guile returns from the CGO function call
+Go then blits the image to the projection window.
 
 At some point this might be simplified by only using Guile Scheme, but perhaps having Go will be useful when we consider multiple machines runningmultiple realtalk instances.
 
 ## Log
 
+* 21-07-2025: Go sends Guile a cv::Mat pointer, Guile draws on it, Go shows it
 * 21-07-2025: Guile Scheme can call opencv through a C++ wrapper
 * 21-07-2025: Golang talks to Guile Scheme using CGO directly now
 * 21-07-2025: homography working and stable. for 3d look into PnPRansac

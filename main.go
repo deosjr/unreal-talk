@@ -33,6 +33,14 @@ func scm_sendPage(id int, ulhc, urhc, llhc, lrhc image.Point, rotation float64) 
 	C.scm_call_6(f, C.scm_from_int(C.int(id)), scm_point(ulhc), scm_point(urhc), scm_point(llhc), scm_point(lrhc), C.scm_from_double(C.double(rotation)))
 }
 
+func scm_sendImagePointer(img gocv.Mat) {
+	ptr := unsafe.Pointer(img.Ptr())
+	fname := C.CString("init-image")
+	defer C.free(unsafe.Pointer(fname))
+	f := C.scm_variable_ref(C.scm_c_lookup(fname))
+	C.scm_call_1(f, C.scm_from_pointer(ptr, nil))
+}
+
 func main() {
 	C.scm_init_guile()
 	C.scm_c_primitive_load(C.CString("test.scm"))
@@ -53,6 +61,10 @@ func main() {
 	x, y := 1280, 720
 	projection := gocv.NewMatWithSize(y, x, gocv.MatTypeCV8UC3)
 	defer projection.Close()
+
+	// send the projection pointer to Guile, once.
+	// it should not free it, that's still Go's job
+	scm_sendImagePointer(projection)
 
 	fs := gocv.NewFileStorage()
 	defer fs.Close()
@@ -122,9 +134,7 @@ func main() {
 			projectionPoints := gocv.NewMat()
 			gocv.PerspectiveTransform(webcamPoints, &projectionPoints, homography)	
 			dstPoints := gocv.NewPointVectorFromMat(projectionPoints)
-			polygons := gocv.NewPointsVector()
-			polygons.Append(dstPoints)
-			gocv.FillPoly(&projection, polygons, color.RGBA{R: 255, A: 255})
+			projected := dstPoints.ToPoints()
 
 			dx := float64(points[2].X - points[3].X)
 			dy := float64(points[2].Y - points[3].Y)
@@ -134,7 +144,6 @@ func main() {
 			}
 			degrees := angle * 180 / math.Pi
 
-			projected := dstPoints.ToPoints()
 			scm_sendPage(int(d.id), projected[3], projected[2], projected[0], projected[1], degrees)
 		}
 

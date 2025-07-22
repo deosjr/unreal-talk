@@ -30,10 +30,10 @@
                             #:return-type void))
 
 
-; note: not garbage collected, allocated in C!
-(define filename (string->pointer "green-output.png"))
-(define img (create-image 1280 720))
-;(free-image img)
+; this img is a pointer to a cv::Mat that is sent by Golang
+(define img #f)
+(define (init-image ptr)
+  (set! img ptr))
 
 (define (page-found id ulhc urhc llhc lrhc rotation)
   (fill-image img 0 0 0) ;; fill black
@@ -48,6 +48,5 @@
            (bytevector-s32-native-set! pts 24 (car llhc))
            (bytevector-s32-native-set! pts 28 (cdr llhc)))))
     (fill-poly img (bytevector->pointer pts) 4 0 0 255))
-  (save-image filename img)
   (display (format #f "~a: ~a ~a ~a ~a ~a" id ulhc urhc llhc lrhc rotation))
   (newline))

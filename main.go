@@ -134,7 +134,8 @@ func main() {
 			}
 			degrees := angle * 180 / math.Pi
 
-			scm_sendPage(int(d.id), points[3], points[2], points[0], points[1], degrees)
+			projected := dstPoints.ToPoints()
+			scm_sendPage(int(d.id), projected[3], projected[2], projected[0], projected[1], degrees)
 		}
 
 		gocv.Rectangle(&projection, image.Rect(0, 0, x, y), color.RGBA{255,255,255,255}, 2)

@@ -1,5 +1,6 @@
 (use-modules (system foreign)
-             (system foreign-library))
+             (system foreign-library)
+             (rnrs bytevectors))
 
 (define lib (load-foreign-library "./libcvmatwrapper.dylib"))
 
@@ -23,14 +24,30 @@
                             #:arg-types (list '*)
                             #:return-type void))
 
-(define (page-found id ulhc urhc llhc lrhc rotation)
-  (display (format #f "~a: ~a ~a ~a ~a ~a" id ulhc urhc llhc lrhc rotation))
-  (newline))
+(define fill-poly
+  (foreign-library-function lib "fill_poly"
+                            #:arg-types (list '* '* int int int int)
+                            #:return-type void))
+
 
 ; note: not garbage collected, allocated in C!
 (define filename (string->pointer "green-output.png"))
+(define img (create-image 1280 720))
+;(free-image img)
 
-(define img (create-image 640 480))
-(fill-image img 0 255 0) ;; fill green
-(save-image filename img)
-(free-image img)
+(define (page-found id ulhc urhc llhc lrhc rotation)
+  (fill-image img 0 0 0) ;; fill black
+  (let* ((pts (make-bytevector (* 8 4)))
+         (_ (begin
+           (bytevector-s32-native-set! pts 0 (car ulhc))
+           (bytevector-s32-native-set! pts 4 (cdr ulhc))
+           (bytevector-s32-native-set! pts 8 (car urhc))
+           (bytevector-s32-native-set! pts 12 (cdr urhc))
+           (bytevector-s32-native-set! pts 16 (car lrhc))
+           (bytevector-s32-native-set! pts 20 (cdr lrhc))
+           (bytevector-s32-native-set! pts 24 (car llhc))
+           (bytevector-s32-native-set! pts 28 (cdr llhc)))))
+    (fill-poly img (bytevector->pointer pts) 4 0 0 255))
+  (save-image filename img)
+  (display (format #f "~a: ~a ~a ~a ~a ~a" id ulhc urhc llhc lrhc rotation))
+  (newline))

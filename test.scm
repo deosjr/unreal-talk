@@ -1,3 +1,4 @@
+(include "realtalk.scm")
 (use-modules (system foreign)
              (system foreign-library)
              (rnrs bytevectors))
@@ -35,7 +36,23 @@
 (define (init-image ptr)
   (set! img ptr))
 
+(define page4proc (make-page-code
+  (Claim this 'highlighted '(0 0 255))
+  (When ((highlighted ,?p (,?b ,?g ,?r))
+         ((page points) ,?p (,?ulhc ,?urhc ,?llhc ,?lrhc)))
+   do (draw-on-page ?ulhc ?urhc ?llhc ?lrhc ?b ?g ?r))
+))
+
+;(dl-assert! (get-dl) 4 '(page code) page4proc)
+(page4proc 4)
+
+(define *pages-in-scene* (make-hash-table))
+
 (define (page-found id ulhc urhc llhc lrhc rotation)
+  (update-page-geometry id ulhc urhc llhc lrhc rotation)
+  (dl-fixpoint! (get-dl)))
+
+(define (draw-on-page ulhc urhc llhc lrhc b g r)
   (fill-image img 0 0 0) ;; fill black
   (let* ((pts (make-bytevector (* 8 4)))
          (_ (begin
@@ -47,6 +64,4 @@
            (bytevector-s32-native-set! pts 20 (cdr lrhc))
            (bytevector-s32-native-set! pts 24 (car llhc))
            (bytevector-s32-native-set! pts 28 (cdr llhc)))))
-    (fill-poly img (bytevector->pointer pts) 4 0 0 255))
-  (display (format #f "~a: ~a ~a ~a ~a ~a" id ulhc urhc llhc lrhc rotation))
-  (newline))
+    (fill-poly img (bytevector->pointer pts) 4 b g r)))

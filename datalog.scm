@@ -144,12 +144,12 @@
          (idx-entity (datalog-idx-entity dl))
          (idx-attr (datalog-idx-attr dl)))
      (let ((m (hash-ref idx-entity entity #f)))
-       (if m (hash-delete! m tuple)))
+       (if m (hash-remove! m tuple)))
      (let ((m (hash-ref idx-attr attr #f)))
-       (if m (hash-delete! m tuple)))))
+       (if m (hash-remove! m tuple)))))
 
 (define (dl-retract-rule! dl rule) 
-  (hash-delete! (datalog-rdb dl) rule))
+  (hash-remove! (datalog-rdb dl) rule))
 
 #| HELPER FUNCTIONS |#
 (define (list->set x)
@@ -209,13 +209,13 @@
 (define (hashtable-keys ht)
   (hash-fold (lambda (k v acc) (cons k acc)) '() ht))
 
-#|
 ;(dl-record 'car ('speed 4) ('smth 5))
 ; goal looks like: (fresh-vars 3 (lambda (q ?x ?y) (equalo q ?x) (dl_findo ( (,?x '(car speed) 4) ))))
 ;(define test2 (dl_find (fresh-vars 3 (lambda (q ?x ?y) (conj (equalo q `,?y) (dl_findo ( (,?x (car speed) 4) (,?x (car smth) ,?y) )))))))
 ; there could be a separate macro rewriting the below to the above
 ;(define test2 (dl_find ,?y where (,?x (car speed) 4) (,?x (car smth) ,?y) ))
 
+#|
 (define dl (make-new-datalog))
 (define a (dl-record! dl 'vertex))
 (define b (dl-record! dl 'vertex))

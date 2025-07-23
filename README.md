@@ -26,6 +26,7 @@ At some point this might be simplified by only using Guile Scheme, but perhaps h
 
 ## Log
 
+* 23-07-2025: RealTalk ported from Hoot, draw routine triggered from fixpoint
 * 22-07-2025: Go sends Guile a cv::Mat pointer, Guile draws on it, Go shows it
 * 21-07-2025: Guile Scheme can call opencv through a C++ wrapper
 * 21-07-2025: Golang talks to Guile Scheme using CGO directly now

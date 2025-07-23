@@ -70,9 +70,9 @@ func main() {
 	defer fs.Close()
 
 	data := []float64{
-1.422374988730949, 0.13439035308003228, -589.9962751807983,
--0.00744007547773715, 1.5367645308852576, -288.2280970029973,
--1.127043317257658e-05, 0.0001650885739257573, 1,
+1.4016266451512909, 0.14384733963142118, -707.3004877256683,
+-0.0030522995464827944, 1.5403240664124613, -149.92037926880684,
+1.5687052114640037e-05, 0.00018672532063978244, 1,
     	}
 	
     	homography := gocv.NewMatWithSize(3, 3, gocv.MatTypeCV64F)
@@ -121,7 +121,7 @@ func main() {
 			//gocv.Circle(&img, points[0], 5, color.RGBA{255, 0, 0, 0}, 2)
 			//gocv.Circle(&img, points[1], 5, color.RGBA{255, 0, 0, 0}, 2)
 			//gocv.Circle(&img, points[2], 5, color.RGBA{255, 0, 0, 0}, 2)
-			gocv.Circle(&img, points[3], 5, color.RGBA{255, 0, 0, 0}, 2)
+			//gocv.Circle(&img, points[3], 5, color.RGBA{255, 0, 0, 0}, 2)
 
 			points2f := []gocv.Point2f{
 				{X:float32(d.corners[0][0]), Y:float32(d.corners[0][1])},

@@ -26,11 +26,27 @@ func scm_point(p image.Point) C.SCM {
 	return C.scm_cons(C.scm_from_int(C.int(p.X)), C.scm_from_int(C.int(p.Y)))
 }
 
-func scm_sendPage(id int, ulhc, urhc, llhc, lrhc image.Point, rotation float64) {
-	fname := C.CString("page-found")
+func scm_pageGeometry(pg pageGeometry) C.SCM {
+	id := C.scm_from_int(C.int(pg.id))
+	ulhc :=  scm_point(pg.ulhc)
+	urhc :=  scm_point(pg.urhc)
+	llhc :=  scm_point(pg.llhc)
+	lrhc :=  scm_point(pg.lrhc)
+	points := C.scm_list_4(ulhc, urhc, llhc, lrhc)
+	rotation := C.scm_from_double(C.double(pg.rotation))
+	return C.scm_list_3(id, points, rotation)
+}
+
+func scm_sendPageGeometries(geos []pageGeometry) {
+	fname := C.CString("pages-found")
 	defer C.free(unsafe.Pointer(fname))
 	f := C.scm_variable_ref(C.scm_c_lookup(fname))
-	C.scm_call_6(f, C.scm_from_int(C.int(id)), scm_point(ulhc), scm_point(urhc), scm_point(llhc), scm_point(lrhc), C.scm_from_double(C.double(rotation)))
+	list := C.SCM_EOL
+	for i:=len(geos)-1; i >=0; i-- {
+		pg := scm_pageGeometry(geos[i])
+		list = C.scm_cons(pg, list)
+	}
+	C.scm_call_1(f, list)
 }
 
 func scm_sendImagePointer(img gocv.Mat) {
@@ -39,6 +55,12 @@ func scm_sendImagePointer(img gocv.Mat) {
 	defer C.free(unsafe.Pointer(fname))
 	f := C.scm_variable_ref(C.scm_c_lookup(fname))
 	C.scm_call_1(f, C.scm_from_pointer(ptr, nil))
+}
+
+type pageGeometry struct {
+	id int
+	ulhc, urhc, llhc, lrhc image.Point
+	rotation float64
 }
 
 func main() {
@@ -75,9 +97,9 @@ func main() {
 	}
 
 	data := []float64{
-1.4016266451512909, 0.14384733963142118, -707.3004877256683,
--0.0030522995464827944, 1.5403240664124613, -149.92037926880684,
-1.5687052114640037e-05, 0.00018672532063978244, 1,
+1.4086077466172802, 0.1411976227347021, -729.1137923102584,
+-0.00431318862862703, 1.539274558148665, -137.7119683470926,
+2.0719595234459486e-05, 0.00018105844972003817, 1,
     	}
 	
     	homography := gocv.NewMatWithSize(3, 3, gocv.MatTypeCV64F)
@@ -106,6 +128,8 @@ func main() {
 		var num C.int
 		dets := C.detect_tags((*C.uint8_t)(unsafe.Pointer(&data[0])), C.int(gray.Cols()), C.int(gray.Rows()), &num)
 		defer C.free(unsafe.Pointer(dets))
+
+		pageGeos := []pageGeometry{}
 
 		slice := (*[1 << 10]C.Detection)(unsafe.Pointer(dets))[:num:num]
 		for _, d := range slice {
@@ -149,8 +173,16 @@ func main() {
 			}
 			degrees := angle * 180 / math.Pi
 
-			scm_sendPage(int(d.id), projected[3], projected[2], projected[0], projected[1], degrees)
+			pageGeos = append(pageGeos, pageGeometry{
+				id: int(d.id),
+				ulhc: projected[3],
+				urhc: projected[2],
+				llhc: projected[0],
+				lrhc: projected[1],
+				rotation: degrees,
+			})
 		}
+		scm_sendPageGeometries(pageGeos)
 
 		gocv.Rectangle(&projection, image.Rect(0, 0, x, y), color.RGBA{255,255,255,255}, 2)
 		window.IMShow(img)

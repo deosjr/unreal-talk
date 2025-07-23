@@ -43,17 +43,26 @@
    do (draw-on-page ?ulhc ?urhc ?llhc ?lrhc ?b ?g ?r))
 ))
 
+(define page12proc (make-page-code
+  (Claim this 'highlighted '(255 0 0))
+))
+
 ;(dl-assert! (get-dl) 4 '(page code) page4proc)
 (page4proc 4)
+(page4proc 12)
 
 (define *pages-in-scene* (make-hash-table))
 
-(define (page-found id ulhc urhc llhc lrhc rotation)
-  (update-page-geometry id ulhc urhc llhc lrhc rotation)
+(define (pages-found pages)
+  (fill-image img 0 0 0) ;; fill black
+  (for-each (lambda (page)
+    (let ((id (car page))
+          (points (cadr page))
+          (rotation (caddr page)))
+      (update-page-geometry id points rotation))) pages)
   (dl-fixpoint! (get-dl)))
 
 (define (draw-on-page ulhc urhc llhc lrhc b g r)
-  (fill-image img 0 0 0) ;; fill black
   (let* ((pts (make-bytevector (* 8 4)))
          (_ (begin
            (bytevector-s32-native-set! pts 0 (car ulhc))

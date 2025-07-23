@@ -124,9 +124,10 @@
     pid))
 
 ; make page dimensions known in datalog
-(define (update-page-geometry pid ulhc urhc llhc lrhc rotation)
+;(define (update-page-geometry pid ulhc urhc llhc lrhc rotation)
+(define (update-page-geometry pid points rotation)
     (retract-page-geometry pid)
-    (dl-assert! dl pid '(page points) (list ulhc urhc llhc lrhc))
+    (dl-assert! dl pid '(page points) points)
     (dl-assert! dl pid '(page rotation) rotation))
 
 (define (retract-page-geometry pid)

@@ -43,5 +43,21 @@ void fill_poly(Image* img, const int* pts, int npts, int b, int g, int r) {
     cv::fillPoly(img->mat, polygons, cv::Scalar(b, g, r));
 }
 
+// Wrapper for cv::pointPolygonTest
+// Returns:
+//   > 0  if the point is inside the polygon
+//   = 0  if the point is on the edge
+//   < 0  if the point is outside
+double point_polygon_test(const int* pts, int npts, int px, int py) {
+    std::vector<cv::Point> points;
+    for (int i = 0; i < npts; i++) {
+	int x = pts[2*i];
+	int y = pts[2*i + 1];
+	points.push_back(cv::Point(x, y));
+    }
+    cv::Point pt(px, py);
+    return cv::pointPolygonTest(points, pt, false);
+}
+
 }
 

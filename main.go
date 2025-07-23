@@ -52,7 +52,6 @@ func main() {
 	defer window.Close()
 	projector := gocv.NewWindow("Projection")
 	defer projector.Close()
-	fullscreen := true
 
 	img := gocv.NewMat()
 	defer img.Close()
@@ -66,8 +65,14 @@ func main() {
 	// it should not free it, that's still Go's job
 	scm_sendImagePointer(projection)
 
-	fs := gocv.NewFileStorage()
-	defer fs.Close()
+	projector.IMShow(projection)
+	fmt.Println("drag projector screen to projector, then press 'f' to fullscreen")
+	for {
+		if projector.WaitKey(1) == 102 { // f
+		    	projector.SetWindowProperty(gocv.WindowPropertyFullscreen, gocv.WindowFullscreen)
+			break
+		}
+	}
 
 	data := []float64{
 1.4016266451512909, 0.14384733963142118, -707.3004877256683,
@@ -152,14 +157,6 @@ func main() {
 		projector.IMShow(projection)
 		if window.WaitKey(1) == 27 {
 			break // ESC to quit
-		}
-		if projector.WaitKey(1) == 102 { // f
-			fullscreen = !fullscreen
-			if fullscreen {
-			    projector.SetWindowProperty(gocv.WindowPropertyFullscreen, gocv.WindowFullscreen)
-			} else {
-			    projector.SetWindowProperty(gocv.WindowPropertyFullscreen, gocv.WindowNormal)
-			}
 		}
 	}
 }

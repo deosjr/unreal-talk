@@ -49,7 +49,7 @@
 
 ;(dl-assert! (get-dl) 4 '(page code) page4proc)
 (page4proc 4)
-(page4proc 12)
+(page12proc 12)
 
 (define *pages-in-scene* (make-hash-table))
 

@@ -124,7 +124,6 @@ func main() {
 		if ok := webcam.Read(&img); !ok || img.Empty() {
 			continue
 		}
-		projection.SetTo(gocv.NewScalar(0, 0, 0, 0))
 
 		// Convert to grayscale
 		gray := gocv.NewMat()
@@ -200,6 +199,7 @@ func main() {
 		}
 		scm_sendPageGeometries(pageGeos)
 
+		// doesn't show up because fullscreen projection still somehow clips
 		gocv.Rectangle(&projection, image.Rect(0, 0, x, y), color.RGBA{255,255,255,255}, 2)
 		window.IMShow(img)
 		projector.IMShow(projection)

@@ -28,6 +28,11 @@
                             #:arg-types (list '* int int int int int int int int)
                             #:return-type void))
 
+(define draw-rectangle
+  (foreign-library-function lib "rectangle"
+                            #:arg-types (list '* int int int int int int int int)
+                            #:return-type void))
+
 (define fill-poly
   (foreign-library-function lib "fill_poly"
                             #:arg-types (list '* '* int int int int)

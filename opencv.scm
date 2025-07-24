@@ -28,6 +28,11 @@
                             #:arg-types (list '* int double int '*)
                             #:return-type void))
 
+(define put-text
+  (foreign-library-function lib "putText"
+                            #:arg-types (list '* '* int int int double int int int int)
+                            #:return-type void))
+
 (define draw-line
   (foreign-library-function lib "line"
                             #:arg-types (list '* int int int int int int int int)

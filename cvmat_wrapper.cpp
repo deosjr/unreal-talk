@@ -43,6 +43,10 @@ void getTextSize(const char* text, int fontFace, double fontScale, int thickness
     *out = TextFormat{size.width, size.height, baseline};
 }
 
+void putText(Image* img, const char* text, int x, int y, int fontFace, double fontScale, int r, int g, int b, int thickness) {
+    cv::putText(img->mat, text, cv::Point(x, y), fontFace, fontScale, cv::Scalar(b, g, r), thickness, cv::LINE_8, false);
+}
+
 void line(Image* img, int x0, int y0, int x1, int y1, int r, int g, int b, int thickness) {
     cv::Point from(x0, y0);
     cv::Point to(x1, y1);

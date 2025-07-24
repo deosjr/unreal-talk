@@ -8,8 +8,6 @@
     (get-text-size cstr font scale thickness buf)
     (parse-c-struct buf (list int int int))))
 
-(display (text-size "hello" 0 2.0 3))
-
 (define (points->bytevector a b c d)
   (let* ((pts (make-bytevector (* 8 4)))
          (_ (begin
@@ -45,7 +43,18 @@
   (Wish this 'has-whiskers #t)
   (When ((,this points-at ,?p)
          (,?p (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
-   do (draw-on-page ?ulhc ?urhc ?lrhc ?llhc 0 255 0))))
+   do (draw-on-page ?ulhc ?urhc ?lrhc ?llhc 0 255 0)
+      (let* ((str (number->string ?p))
+             (left (car ?ulhc)) (top (cdr ?ulhc))
+             (testsize (text-size str 0 2.0 3))
+             (width (car testsize))
+             (height (cadr testsize))
+             (baseline (caddr testsize)))
+      ;(draw-rectangle img 0 0 width height 255 0 0 -1)
+      ;(draw-line img 0 baseline width baseline 0 0 255 2)
+      (put-text img (string->pointer str) left top 0 2.0 255 255 255 3))
+      )))
+
 (dl-assert! (get-dl) 4 '(page code) page4proc)
 (hash-set! *procs* 4 page4proc)
 

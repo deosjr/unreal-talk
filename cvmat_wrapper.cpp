@@ -31,6 +31,18 @@ void free_image(Image* img) {
     }
 }
 
+typedef struct {
+    int width;
+    int height;
+    int baseline;
+} TextFormat;
+
+void getTextSize(const char* text, int fontFace, double fontScale, int thickness, TextFormat* out) {
+    int baseline=0;
+    cv::Size size = cv::getTextSize(text, fontFace, fontScale, thickness, &baseline);
+    *out = TextFormat{size.width, size.height, baseline};
+}
+
 void line(Image* img, int x0, int y0, int x1, int y1, int r, int g, int b, int thickness) {
     cv::Point from(x0, y0);
     cv::Point to(x1, y1);

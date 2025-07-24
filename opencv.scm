@@ -23,6 +23,11 @@
                             #:arg-types (list '*)
                             #:return-type void))
 
+(define get-text-size
+  (foreign-library-function lib "getTextSize"
+                            #:arg-types (list '* int double int '*)
+                            #:return-type void))
+
 (define draw-line
   (foreign-library-function lib "line"
                             #:arg-types (list '* int int int int int int int int)

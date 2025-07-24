@@ -2,6 +2,14 @@
 (include "realtalk.scm")
 (use-modules (rnrs bytevectors))
 
+(define (text-size str font scale thickness)
+  (let ((buf (bytevector->pointer (make-bytevector (* 3 (sizeof int)))))
+         (cstr (string->pointer str)))
+    (get-text-size cstr font scale thickness buf)
+    (parse-c-struct buf (list int int int))))
+
+(display (text-size "hello" 0 2.0 3))
+
 (define (points->bytevector a b c d)
   (let* ((pts (make-bytevector (* 8 4)))
          (_ (begin

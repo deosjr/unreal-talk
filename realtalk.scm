@@ -10,12 +10,47 @@
 ; - derived Claim/Wish is not supported in When macro, behaviour should be different
 ; --> When macro replaces Claim/Wish with DerivedClaim/DerivedWish?
 
-(define *pages* '())
 (define *procs* (make-hash-table))
 (define *rule-procs* (make-hash-table))
 
 (define dl (make-new-datalog))
 (define (get-dl) dl)
+
+; this img is a pointer to a cv::Mat that is sent by Golang
+(define img #f)
+(define (init-image ptr)
+  (set! img ptr))
+
+(define *pages-in-scene* (make-hash-table))
+(define *pages-in-scene-prev* (make-hash-table))
+
+(define (update-global-page-registry id)
+  (hash-set! *pages-in-scene* id #t))
+
+(define (get-new-pages)
+  (filter (lambda (id) (not (hash-ref *pages-in-scene-prev* id #f)) )
+    (hashtable-keys *pages-in-scene*)))
+
+(define (get-removed-pages)
+  (filter (lambda (id) (not (hash-ref *pages-in-scene* id #f)) )
+    (hashtable-keys *pages-in-scene-prev*)))
+
+(define (pages-found pages key)
+  (fill-image img 0 0 0) ;; fill black
+  (if (not (= key -1)) (begin (display key) (newline)))
+  (for-each (lambda (page)
+    (let ((id (car page))
+          (points (cadr page))
+          (rotation (caddr page)))
+      (update-global-page-registry id)
+      (update-page-geometry id points rotation))) pages)
+  (let ((new-pages (get-new-pages))
+        (removed-pages (get-removed-pages)))
+    (for-each (lambda (id) (execute-page id)) new-pages)
+    (for-each (lambda (id) (retract-page-geometry id)) removed-pages))
+  (set! *pages-in-scene-prev* *pages-in-scene*)
+  (set! *pages-in-scene* (make-hash-table))
+  (dl-fixpoint! (get-dl)))
 
 (define-syntax make-page-code
   (lambda (stx)
@@ -119,7 +154,6 @@
 
 (define (add-page proc)
   (let* ((pid (dl-record! dl 'page ('code proc))))
-    (set! *pages* (cons pid *pages*))
     (hash-set! *procs* pid proc)
     pid))
 
@@ -135,8 +169,6 @@
         ( rotation (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (,pid (page rotation) ,x) )))))))
     (if (not (null? points)) (dl-retract! dl `(,pid (page points) ,(car points))))
     (if (not (null? rotation)) (dl-retract! dl `(,pid (page rotation) ,(car rotation))))))
-
-; todo: check if page was already recognised on table previous iteration
 
 ; only run page code when newly in bounds of table
 (define (page-moved-onto-table table pid)

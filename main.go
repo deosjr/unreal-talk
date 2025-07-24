@@ -38,7 +38,8 @@ func scm_pageGeometry(pg pageGeometry) C.SCM {
 	return C.scm_list_3(id, points, rotation)
 }
 
-func scm_sendPageGeometries(geos []pageGeometry) {
+// todo: sends key pressed info as well, perhaps rename?
+func scm_sendPageGeometries(geos []pageGeometry, key int) {
 	fname := C.CString("pages-found")
 	defer C.free(unsafe.Pointer(fname))
 	f := C.scm_variable_ref(C.scm_c_lookup(fname))
@@ -47,7 +48,7 @@ func scm_sendPageGeometries(geos []pageGeometry) {
 		pg := scm_pageGeometry(geos[i])
 		list = C.scm_cons(pg, list)
 	}
-	C.scm_call_1(f, list)
+	C.scm_call_2(f, list, C.scm_from_int(C.int(key)))
 }
 
 func scm_sendImagePointer(img gocv.Mat) {
@@ -121,6 +122,8 @@ func main() {
     	}
 
 	for {
+		// todo: use some kind of buffer instead of sampling?
+		keyDown := gocv.WaitKey(1)
 		if ok := webcam.Read(&img); !ok || img.Empty() {
 			continue
 		}
@@ -196,8 +199,14 @@ func main() {
 				lrhc: projected[1],
 				rotation: degrees,
 			})
+			if key := gocv.WaitKey(1); key != -1 {
+				keyDown = key
+			}
 		}
-		scm_sendPageGeometries(pageGeos)
+		if key := gocv.WaitKey(1); key != -1 {
+			keyDown = key
+		}
+		scm_sendPageGeometries(pageGeos, keyDown)
 
 		// doesn't show up because fullscreen projection still somehow clips
 		gocv.Rectangle(&projection, image.Rect(0, 0, x, y), color.RGBA{255,255,255,255}, 2)

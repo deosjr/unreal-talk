@@ -2,41 +2,6 @@
 (include "realtalk.scm")
 (use-modules (rnrs bytevectors))
 
-; this img is a pointer to a cv::Mat that is sent by Golang
-(define img #f)
-(define (init-image ptr)
-  (set! img ptr))
-
-(define *pages-in-scene* (make-hash-table))
-(define *pages-in-scene-prev* (make-hash-table))
-
-(define (update-global-page-registry id)
-  (hash-set! *pages-in-scene* id #t))
-
-(define (get-new-pages)
-  (filter (lambda (id) (not (hash-ref *pages-in-scene-prev* id #f)) )
-    (hashtable-keys *pages-in-scene*)))
-
-(define (get-removed-pages)
-  (filter (lambda (id) (not (hash-ref *pages-in-scene* id #f)) )
-    (hashtable-keys *pages-in-scene-prev*)))
-
-(define (pages-found pages)
-  (fill-image img 0 0 0) ;; fill black
-  (for-each (lambda (page)
-    (let ((id (car page))
-          (points (cadr page))
-          (rotation (caddr page)))
-      (update-global-page-registry id)
-      (update-page-geometry id points rotation))) pages)
-  (let ((new-pages (get-new-pages))
-        (removed-pages (get-removed-pages)))
-    (for-each (lambda (id) (execute-page id)) new-pages)
-    (for-each (lambda (id) (retract-page-geometry id)) removed-pages))
-  (set! *pages-in-scene-prev* *pages-in-scene*)
-  (set! *pages-in-scene* (make-hash-table))
-  (dl-fixpoint! (get-dl)))
-
 (define (points->bytevector a b c d)
   (let* ((pts (make-bytevector (* 8 4)))
          (_ (begin

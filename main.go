@@ -13,6 +13,7 @@ package main
 */
 import "C"
 import (
+	"flag"
 	"fmt"
 	"image"
 	"image/color"
@@ -64,6 +65,15 @@ type pageGeometry struct {
 }
 
 func main() {
+
+	calib := flag.Bool("calibrate", false, "calibrate camera instead of running")
+	flag.Parse()
+	if *calib {
+		fmt.Println("calibrating...")
+		calibrate()
+		return
+	}
+
 	C.scm_init_guile()
 	C.scm_c_primitive_load(C.CString("test.scm"))
 

@@ -27,8 +27,6 @@ func generateChessboard(squareSize, numCols, numRows int) gocv.Mat {
 	return img
 }
 
-// todo: add a flag to main to calibrate
-//func main() {
 func calibrate() {
 	webcam, _ := gocv.OpenVideoCapture(0)
 	defer webcam.Close()

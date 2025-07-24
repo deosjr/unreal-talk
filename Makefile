@@ -10,5 +10,7 @@ run: build-opencv build-go
 	export CGO_LDFLAGS="$(shell guile-config link)"
 	./main
 
-calibrate:
-	go run calibrate.go
+calibrate: build-opencv build-go
+	export CGO_CFLAGS="$(shell guile-config compile)"
+	export CGO_LDFLAGS="$(shell guile-config link)"
+	./main --calibrate

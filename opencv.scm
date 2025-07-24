@@ -23,6 +23,11 @@
                             #:arg-types (list '*)
                             #:return-type void))
 
+(define draw-line
+  (foreign-library-function lib "line"
+                            #:arg-types (list '* int int int int int int int int)
+                            #:return-type void))
+
 (define fill-poly
   (foreign-library-function lib "fill_poly"
                             #:arg-types (list '* '* int int int int)

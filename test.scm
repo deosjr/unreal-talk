@@ -52,22 +52,6 @@
 (define (draw-on-page ulhc urhc llhc lrhc r g b)
   (fill-poly img (bytevector->pointer (points->bytevector ulhc urhc llhc lrhc)) 4 r g b))
 
-(define (draw-line from to width r g b)
-  ; hardcoded and hacked for now
-  (let* ((fromx (inexact->exact (round (car from)))) (fromy (inexact->exact (round (cdr from))))
-         (tox (inexact->exact (round (car to)))) (toy (inexact->exact (round (cdr to))))
-         (pts (make-bytevector (* 8 4)))
-         (_ (begin
-           (bytevector-s32-native-set! pts 0 (- fromx 1))
-           (bytevector-s32-native-set! pts 4 fromy)
-           (bytevector-s32-native-set! pts 8 (- tox 1))
-           (bytevector-s32-native-set! pts 12 toy)
-           (bytevector-s32-native-set! pts 16 (+ tox 1))
-           (bytevector-s32-native-set! pts 20 toy)
-           (bytevector-s32-native-set! pts 24 (+ fromx 1))
-           (bytevector-s32-native-set! pts 28 fromy))))
-    (fill-poly img (bytevector->pointer pts) 4 r g b)))
-
 (define (vec-add p q)
   (let ((px (car p)) (py (cdr p))
         (qx (car q)) (qy (cdr q)))
@@ -84,13 +68,13 @@
 
 (define (vec-from-to p q) (vec-sub q p))
 
-#|
 (define page4proc (make-page-code
   (Wish this 'has-whiskers #t)
   (When ((points-at ,this ,?p)
          ((page points) ,?p (,?ulhc ,?urhc ,?llhc ,?lrhc)))
    do (draw-on-page ?ulhc ?urhc ?lrhc ?llhc 0 255 0))))
-(page4proc 4)
+(dl-assert! (get-dl) 4 '(page code) page4proc)
+(hash-set! *procs* 4 page4proc)
 
 ; whisker length == page height
 (define page12proc (make-page-code
@@ -116,9 +100,10 @@
          ((page points) ,?p (,?ulhc ,?urhc ,?llhc ,?lrhc)))
    do (let* ((upvec (vec-from-to ?ulhc ?urhc))
              (mid (vec-add ?ulhc (vec-mul upvec 0.5)))
+             (midx (inexact->exact (round (car mid)))) (midy (inexact->exact (round (cdr mid))))
              (end (vec-add mid (vec-mul (vec-from-to ?lrhc ?urhc) 2)))
              (endx (inexact->exact (round (car end)))) (endy (inexact->exact (round (cdr end)))))
-         (draw-line mid end 2 0 255 0)
+         (draw-line img midx midy endx endy 0 255 0 2)
          (claim-pointer-at ?p (cons endx endy))))
 
   ; NOTE: this fires for every page, since we can't calculate in the db atm!
@@ -130,9 +115,10 @@
               (test (point-polygon-test ptr 4 ?px ?py)))
       (if (> test 0) (claim-point-at ?p ?q))))
 ))
-(page12proc 12)
-|#
+(dl-assert! (get-dl) 12 '(page code) page12proc)
+(hash-set! *procs* 12 page12proc)
 
+#|
 (define (fmod x y)
   (- x (* y (floor (/ x y)))))
 
@@ -153,3 +139,4 @@
         (fill-image img (scale r) (scale g) (scale b))))))
 (dl-assert! (get-dl) 4 '(page code) page4proc)
 (hash-set! *procs* 4 page4proc)
+|#

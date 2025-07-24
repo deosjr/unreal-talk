@@ -70,8 +70,8 @@
 
 (define page4proc (make-page-code
   (Wish this 'has-whiskers #t)
-  (When ((points-at ,this ,?p)
-         ((page points) ,?p (,?ulhc ,?urhc ,?llhc ,?lrhc)))
+  (When ((,this points-at ,?p)
+         (,?p (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
    do (draw-on-page ?ulhc ?urhc ?lrhc ?llhc 0 255 0))))
 (dl-assert! (get-dl) 4 '(page code) page4proc)
 (hash-set! *procs* 4 page4proc)
@@ -91,13 +91,13 @@
     (hash-set! (datalog-idb (get-dl)) `(,p points-at ,q) #t)
     (Claim p 'points-at q))
 
-  (When ((wishes ,?p (,?p has-whiskers ,#t))) do
+  (When ((,?p wishes (,?p has-whiskers ,#t))) do
     (claim-has-whiskers ?p))
 
   ; page rotates around midpoint: from there to whisker end, add halfh + whisker length
   ; all of this logic becomes easier here if we do some of the calculations in modules/realtalk
-  (When ((has-whiskers ,?p #t)
-         ((page points) ,?p (,?ulhc ,?urhc ,?llhc ,?lrhc)))
+  (When ((,?p has-whiskers #t)
+         (,?p (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
    do (let* ((upvec (vec-from-to ?ulhc ?urhc))
              (mid (vec-add ?ulhc (vec-mul upvec 0.5)))
              (midx (inexact->exact (round (car mid)))) (midy (inexact->exact (round (cdr mid))))
@@ -108,8 +108,8 @@
 
   ; NOTE: this fires for every page, since we can't calculate in the db atm!
   ; todo: rotated page now checks bounding box, not actual div dimensions
-  (When ((pointer-at ,?p (,?px . ,?py))
-         ((page points) ,?q (,?ulhc ,?urhc ,?llhc ,?lrhc)))
+  (When ((,?p pointer-at (,?px . ,?py))
+         (,?q (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
     do (let* ((pts (points->bytevector ?ulhc ?urhc ?lrhc ?llhc))
               (ptr (bytevector->pointer pts))
               (test (point-polygon-test ptr 4 ?px ?py)))
@@ -123,7 +123,7 @@
   (- x (* y (floor (/ x y)))))
 
 (define page4proc (make-page-code
-  (When (((page rotation) ,this ,?rotation))
+  (When ((,this (page rotation) ,?rotation))
    do (let* ((h (/ ?rotation 60.0))
              (c 1.0)
              (x (* c (- 1 (abs (- (fmod h 2) 1)))))

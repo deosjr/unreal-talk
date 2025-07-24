@@ -76,7 +76,7 @@
       [else (datum->syntax stx datum)]))
 
   (syntax-case stx (do)
-    ((_ ((condition cx cy) ...) do statement ...)
+    ((_ ((cx condition cy) ...) do statement ...)
        (with-syntax ((this (datum->syntax stx 'this)))
          (let* ((datums (syntax->datum #'((cx condition cy) ...)))
             (vars (remove-duplicates (collect-vars datums)))
@@ -172,7 +172,7 @@
 (define (assert-time)
   (let (( claims (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (now time ,x) )))))))
     (for-each (lambda (claim) (dl-retract! dl `(now time ,claim))) claims)
-    (dl-assert! dl 'now 'time (gettimeofday))
+    (dl-assert! dl 'time 'now (gettimeofday))
   ))
 
 (define (execute-page pid)

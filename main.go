@@ -163,6 +163,12 @@ func main() {
 			projectionPoints := gocv.NewMat()
 			gocv.PerspectiveTransform(webcamPoints, &projectionPoints, homography)	
 			dstPoints := gocv.NewPointVectorFromMat(projectionPoints)
+
+			// only consider tags within the projection boundary
+			bound := gocv.BoundingRect(dstPoints)
+			if !bound.In(image.Rect(0, 0, x, y)) {
+				continue
+			}
 			projected := dstPoints.ToPoints()
 
 			dx := float64(points[2].X - points[3].X)

@@ -32,7 +32,7 @@ void free_image(Image* img) {
 }
 
 // Fill a polygon defined by points [(x0,y0), (x1,y1), ...]
-void fill_poly(Image* img, const int* pts, int npts, int b, int g, int r) {
+void fill_poly(Image* img, const int* pts, int npts, int r, int g, int b) {
     std::vector<cv::Point> points;
     for (int i = 0; i < npts; i++) {
 	int x = pts[2*i];

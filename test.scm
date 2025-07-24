@@ -8,6 +8,18 @@
   (set! img ptr))
 
 (define *pages-in-scene* (make-hash-table))
+(define *pages-in-scene-prev* (make-hash-table))
+
+(define (update-global-page-registry id)
+  (hash-set! *pages-in-scene* id #t))
+
+(define (get-new-pages)
+  (filter (lambda (id) (not (hash-ref *pages-in-scene-prev* id #f)) )
+    (hashtable-keys *pages-in-scene*)))
+
+(define (get-removed-pages)
+  (filter (lambda (id) (not (hash-ref *pages-in-scene* id #f)) )
+    (hashtable-keys *pages-in-scene-prev*)))
 
 (define (pages-found pages)
   (fill-image img 0 0 0) ;; fill black
@@ -15,7 +27,14 @@
     (let ((id (car page))
           (points (cadr page))
           (rotation (caddr page)))
+      (update-global-page-registry id)
       (update-page-geometry id points rotation))) pages)
+  (let ((new-pages (get-new-pages))
+        (removed-pages (get-removed-pages)))
+    (for-each (lambda (id) (execute-page id)) new-pages)
+    (for-each (lambda (id) (retract-page-geometry id)) removed-pages))
+  (set! *pages-in-scene-prev* *pages-in-scene*)
+  (set! *pages-in-scene* (make-hash-table))
   (dl-fixpoint! (get-dl)))
 
 (define (points->bytevector a b c d)
@@ -30,10 +49,10 @@
            (bytevector-s32-native-set! pts 24 (car d))
            (bytevector-s32-native-set! pts 28 (cdr d))))) pts))
 
-(define (draw-on-page ulhc urhc llhc lrhc b g r)
-  (fill-poly img (bytevector->pointer (points->bytevector ulhc urhc llhc lrhc)) 4 b g r))
+(define (draw-on-page ulhc urhc llhc lrhc r g b)
+  (fill-poly img (bytevector->pointer (points->bytevector ulhc urhc llhc lrhc)) 4 r g b))
 
-(define (draw-line from to width b g r)
+(define (draw-line from to width r g b)
   ; hardcoded and hacked for now
   (let* ((fromx (inexact->exact (round (car from)))) (fromy (inexact->exact (round (cdr from))))
          (tox (inexact->exact (round (car to)))) (toy (inexact->exact (round (cdr to))))
@@ -47,7 +66,7 @@
            (bytevector-s32-native-set! pts 20 toy)
            (bytevector-s32-native-set! pts 24 (+ fromx 1))
            (bytevector-s32-native-set! pts 28 fromy))))
-    (fill-poly img (bytevector->pointer pts) 4 b g r)))
+    (fill-poly img (bytevector->pointer pts) 4 r g b)))
 
 (define (vec-add p q)
   (let ((px (car p)) (py (cdr p))
@@ -65,6 +84,7 @@
 
 (define (vec-from-to p q) (vec-sub q p))
 
+#|
 (define page4proc (make-page-code
   (Wish this 'has-whiskers #t)
   (When ((points-at ,this ,?p)
@@ -86,8 +106,6 @@
     (hash-set! (datalog-idb (get-dl)) `(,this claims (,p points-at ,q)) #t)
     (hash-set! (datalog-idb (get-dl)) `(,p points-at ,q) #t)
     (Claim p 'points-at q))
-
-  (define pi 3.1415926536)
 
   (When ((wishes ,?p (,?p has-whiskers ,#t))) do
     (claim-has-whiskers ?p))
@@ -113,3 +131,25 @@
       (if (> test 0) (claim-point-at ?p ?q))))
 ))
 (page12proc 12)
+|#
+
+(define (fmod x y)
+  (- x (* y (floor (/ x y)))))
+
+(define page4proc (make-page-code
+  (When (((page rotation) ,this ,?rotation))
+   do (let* ((h (/ ?rotation 60.0))
+             (c 1.0)
+             (x (* c (- 1 (abs (- (fmod h 2) 1)))))
+             (r 0) (g 0) (b 0))
+        (cond
+          ((< h 1) (set! r c) (set! g x) (set! b 0))
+          ((< h 2) (set! r x) (set! g c) (set! b 0))
+          ((< h 3) (set! r 0) (set! g c) (set! b x))
+          ((< h 4) (set! r 0) (set! g x) (set! b c))
+          ((< h 5) (set! r x) (set! g 0) (set! b c))
+          ((<= h 6) (set! r c) (set! g 0) (set! b x)))
+        (define (scale v) (inexact->exact (round (* 255 v))))
+        (fill-image img (scale r) (scale g) (scale b))))))
+(dl-assert! (get-dl) 4 '(page code) page4proc)
+(hash-set! *procs* 4 page4proc)

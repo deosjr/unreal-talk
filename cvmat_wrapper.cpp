@@ -9,9 +9,9 @@ typedef struct {
     cv::Mat mat;
 } Image;
 
-Image* create_image(int width, int height) {
+Image* create_image(int width, int height, int imgType) {
     Image* img = new Image;
-    img->mat = cv::Mat(height, width, CV_8UC3);
+    img->mat = cv::Mat(height, width, imgType, cv::Scalar(0));
     return img;
 }
 
@@ -23,6 +23,10 @@ void fill_image(Image* img, unsigned char r, unsigned char g, unsigned char b) {
 int save_image(const char* filename, Image* img) {
     if (img == nullptr) return 0;
     return cv::imwrite(filename, img->mat) ? 1 : 0;
+}
+
+void copyTo(Image* src, Image* dst, Image* mask) {
+    src->mat.copyTo(dst->mat, mask->mat);
 }
 
 void free_image(Image* img) {
@@ -87,5 +91,23 @@ double point_polygon_test(const int* pts, int npts, int px, int py) {
     return cv::pointPolygonTest(points, pt, false);
 }
 
+Image* get_rotation_matrix_2d(int cx, int cy, double angle, double scale) {
+    Image* mat = new Image;
+    cv::Point2f center(cx, cy);
+    mat->mat = cv::getRotationMatrix2D(center, angle, scale);
+    return mat;
 }
 
+void warp_affine(Image* src, Image* dst, Image* transform, int width, int height) {
+    cv::warpAffine(
+        src->mat,
+        dst->mat,
+        transform->mat,
+        cv::Size(width, height),
+        cv::INTER_LINEAR,
+        cv::BORDER_CONSTANT,
+        cv::Scalar(0)
+    );
+}
+
+}

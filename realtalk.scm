@@ -163,15 +163,16 @@
 ; then remove all derived facts and run fixpoint analysis again. This way we can encapsulate state in page code!
 ; NOTE: there are no derived facts!!! only followup claims/rules. we can query datalog to get all claims/rules asserted by a page as we run a closure over 'this' when creating rule lambda
 (define (recalculate-pages)
-  ;(assert-time) ; todo
+  (assert-time)
   ; todo: do we need to reset dl-idb ?
   ; currently rules execute each time a page is moved, which is not what I'd expect
   (dl-fixpoint! dl))
 
+; note: guile scheme gettimeofday returns a pair of seconds and microseconds in unix epoch 
 (define (assert-time)
   (let (( claims (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (now time ,x) )))))))
     (for-each (lambda (claim) (dl-retract! dl `(now time ,claim))) claims)
-    ;(dl-assert! dl 'now 'time (date-now)))) ; todo
+    (dl-assert! dl 'now 'time (gettimeofday))
   ))
 
 (define (execute-page pid)

@@ -26,6 +26,7 @@ At some point this might be simplified by only using Guile Scheme, but perhaps h
 
 ## Log
 
+* 25-07-2025: Current setup can recognize 4x4cm tags stably
 * 25-07-2025: Use the file system as database for page scripts
 * 24-07-2025: Claim and When fact order is now in sync
 * 23-07-2025: RealTalk ported from Hoot, draw routine triggered from fixpoint

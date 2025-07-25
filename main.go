@@ -90,12 +90,14 @@ func main() {
 	defer img.Close()
 	// calibration pattern fullscreen fills projector dimensions
 	// projection fullscreen should match those dimensions!
+	// todo: read dimensions from the calibration output?
 	x, y := 1280, 720
 	projection := gocv.NewMatWithSize(y, x, gocv.MatTypeCV8UC3)
 	defer projection.Close()
 
 	// send the projection pointer to Guile, once.
 	// it should not free it, that's still Go's job
+	// todo: send projector dimensions as well?
 	scm_sendImagePointer(projection)
 
 	projector.IMShow(projection)

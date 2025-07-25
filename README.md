@@ -26,7 +26,8 @@ At some point this might be simplified by only using Guile Scheme, but perhaps h
 
 ## Log
 
-* 24-07-2925: Claim and When fact order is now in sync
+* 25-07-2025: Use the file system as database for page scripts
+* 24-07-2025: Claim and When fact order is now in sync
 * 23-07-2025: RealTalk ported from Hoot, draw routine triggered from fixpoint
 * 22-07-2025: Go sends Guile a cv::Mat pointer, Guile draws on it, Go shows it
 * 21-07-2025: Guile Scheme can call opencv through a C++ wrapper

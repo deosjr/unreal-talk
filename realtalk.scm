@@ -208,4 +208,5 @@
   ))
 
 (define (execute-page pid)
-  ((hash-ref *procs* pid #f) pid))
+  (let ((proc (hash-ref *procs* pid #f)))
+    (if proc (proc pid))))

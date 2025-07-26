@@ -16,7 +16,6 @@
   (claim-has-whiskers ?p))
 
 ; page rotates around midpoint: from there to whisker end, add halfh + whisker length
-; all of this logic becomes easier here if we do some of the calculations in modules/realtalk
 (When ((,?p has-whiskers #t)
        (,?p (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (let* ((upvec (vec-from-to ?ulhc ?urhc))
@@ -28,7 +27,6 @@
        (claim-pointer-at ?p (cons endx endy))))
 
 ; NOTE: this fires for every page, since we can't calculate in the db atm!
-; todo: rotated page now checks bounding box, not actual div dimensions
 (When ((,?p pointer-at (,?px . ,?py))
        (,?q (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
   do (let* ((pts (points->bytevector ?ulhc ?urhc ?lrhc ?llhc))

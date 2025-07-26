@@ -18,6 +18,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"time"
 	"unsafe"
 
 	"gocv.io/x/gocv"
@@ -110,9 +111,9 @@ func main() {
 	}
 
 	data := []float64{
-1.4321491524909256, 0.20226295637665276, -627.377864964897,
--0.02299966979681914, 1.5841570051002574, -407.3124147215511,
--2.4059793117133683e-05, 0.00023724708565417253, 1,
+1.2580602714027673, 0.10159008314992518, -499.2400878211504,
+-0.04726029080388189, 1.3636369977843847, -32.42505965294924,
+-4.052051859479486e-05, 0.00011646813994832703, 1,
     	}
 	
     	homography := gocv.NewMatWithSize(3, 3, gocv.MatTypeCV64F)
@@ -124,6 +125,7 @@ func main() {
     	}
 
 	for {
+		start := time.Now()
 		// todo: use some kind of buffer instead of sampling?
 		keyDown := gocv.WaitKey(1)
 		if ok := webcam.Read(&img); !ok || img.Empty() {
@@ -142,6 +144,8 @@ func main() {
 		var num C.int
 		dets := C.detect_tags((*C.uint8_t)(unsafe.Pointer(&data[0])), C.int(gray.Cols()), C.int(gray.Rows()), &num)
 		defer C.free(unsafe.Pointer(dets))
+		time_detect := time.Now().Sub(start)
+		start = time.Now()
 
 		pageGeos := []pageGeometry{}
 
@@ -205,10 +209,18 @@ func main() {
 				keyDown = key
 			}
 		}
+		time_geos := time.Now().Sub(start)
+		start = time.Now()
 		if key := gocv.WaitKey(1); key != -1 {
 			keyDown = key
 		}
 		scm_sendPageGeometries(pageGeos, keyDown)
+		time_scm := time.Now().Sub(start)
+		pageids := []int{}
+		for _, pg := range pageGeos {
+			pageids = append(pageids, pg.id)
+		}
+		fmt.Printf("%v\t%v\t%v - %v\n", time_detect.Round(time.Millisecond), time_geos.Round(time.Millisecond), time_scm.Round(time.Millisecond), pageids)
 
 		// doesn't show up because fullscreen projection still somehow clips
 		gocv.Rectangle(&projection, image.Rect(0, 0, x, y), color.RGBA{255,255,255,255}, 2)

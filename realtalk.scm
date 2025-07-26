@@ -46,8 +46,8 @@
       (update-page-geometry id points rotation))) pages)
   (let ((new-pages (get-new-pages))
         (removed-pages (get-removed-pages)))
-    (for-each (lambda (id) (execute-page id)) new-pages)
-    (for-each (lambda (id) (retract-page-geometry id)) removed-pages))
+    (for-each (lambda (id) (page-moved-onto-table id)) new-pages)
+    (for-each (lambda (id) (page-moved-from-table id)) removed-pages))
   (set! *pages-in-scene-prev* *pages-in-scene*)
   (set! *pages-in-scene* (make-hash-table))
   (dl-fixpoint! (get-dl)))
@@ -171,9 +171,8 @@
     (if (not (null? rotation)) (dl-retract! dl `(,pid (page rotation) ,(car rotation))))))
 
 ; only run page code when newly in bounds of table
-(define (page-moved-onto-table table pid)
-  (execute-page pid)
-  (recalculate-pages))
+(define (page-moved-onto-table pid)
+  (execute-page pid))
 
 ; then retract all 'this claims x' and 'this rules x' from dl-db when newly out of table bounds
 (define (page-moved-from-table pid)
@@ -185,8 +184,7 @@
     (for-each (lambda (claim) (dl-retract! dl `(,pid claims ,claim))) claims)
     (for-each (lambda (wish) (dl-retract! dl `(,pid wishes ,wish))) wishes)
     (for-each (lambda (rule) (dl-retract-rule! dl rule)) rules)
-    (for-each (lambda (rule) (dl-retract! dl `(,pid rules ,rule))) rules))
-  (recalculate-pages))
+    (for-each (lambda (rule) (dl-retract! dl `(,pid rules ,rule))) rules)))
 
 ; When a page is in view, its code is executed. Then when all pages have ran, dl-fixpoint runs all consequences.
 ; assumes a single table for now, a div with id "table"

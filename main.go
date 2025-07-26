@@ -127,6 +127,7 @@ func main() {
 	for {
 		start := time.Now()
 		// todo: use some kind of buffer instead of sampling?
+		// probably better in a separate background process
 		keyDown := gocv.WaitKey(1)
 		if ok := webcam.Read(&img); !ok || img.Empty() {
 			continue
@@ -150,65 +151,20 @@ func main() {
 		pageGeos := []pageGeometry{}
 
 		slice := (*[1 << 10]C.Detection)(unsafe.Pointer(dets))[:num:num]
+		ch := make(chan detectionResult, len(slice))
 		for _, d := range slice {
-			// todo: camera calibration (estimate?) + apriltag estimate_tag_pose
-			center := image.Pt(int(d.cx), int(d.cy))
-			// The corners of the tag in image pixel coordinates. These always
-    			// wrap counter-clock wise around the tag.
-			points := []image.Point{
-				image.Pt(int(d.corners[0][0]), int(d.corners[0][1])),
-				image.Pt(int(d.corners[1][0]), int(d.corners[1][1])),
-				image.Pt(int(d.corners[2][0]), int(d.corners[2][1])),
-				image.Pt(int(d.corners[3][0]), int(d.corners[3][1])),
-			}
-			gocv.Circle(&img, center, 5, color.RGBA{0, 255, 0, 0}, 2)
-			gocv.PutText(&img, fmt.Sprintf("ID %d", d.id), center, gocv.FontHersheyPlain, 1.2, color.RGBA{255, 0, 0, 0}, 2)
-			// point order seems to be: LLHC, LRHC, URHC, ULHC, stable through rotation (!)
-			// todo: is that true for all tags?
-			//gocv.Circle(&img, points[0], 5, color.RGBA{255, 0, 0, 0}, 2)
-			//gocv.Circle(&img, points[1], 5, color.RGBA{255, 0, 0, 0}, 2)
-			//gocv.Circle(&img, points[2], 5, color.RGBA{255, 0, 0, 0}, 2)
-			//gocv.Circle(&img, points[3], 5, color.RGBA{255, 0, 0, 0}, 2)
-
-			points2f := []gocv.Point2f{
-				{X:float32(d.corners[0][0]), Y:float32(d.corners[0][1])},
-				{X:float32(d.corners[1][0]), Y:float32(d.corners[1][1])},
-				{X:float32(d.corners[2][0]), Y:float32(d.corners[2][1])},
-				{X:float32(d.corners[3][0]), Y:float32(d.corners[3][1])},
-			}
-			pv2f := gocv.NewPoint2fVectorFromPoints(points2f)
-			webcamPoints := gocv.NewMatFromPoint2fVector(pv2f, true)
-			projectionPoints := gocv.NewMat()
-			gocv.PerspectiveTransform(webcamPoints, &projectionPoints, homography)	
-			dstPoints := gocv.NewPointVectorFromMat(projectionPoints)
-
-			// only consider tags within the projection boundary
-			bound := gocv.BoundingRect(dstPoints)
-			if !bound.In(image.Rect(0, 0, x, y)) {
+			go func(d C.Detection) {
+				ch <- parseDetection(img, x, y, homography, d)
+			}(d)
+		}
+		for i:=0; i<len(slice); i++ {
+			result := <-ch
+			if !result.ok {
 				continue
 			}
-			projected := dstPoints.ToPoints()
-
-			dx := float64(points[2].X - points[3].X)
-			dy := float64(points[2].Y - points[3].Y)
-			angle := math.Atan2(dy, dx)
-			if angle < 0 {
-				angle += 2 * math.Pi
-			}
-			degrees := angle * 180 / math.Pi
-
-			pageGeos = append(pageGeos, pageGeometry{
-				id: int(d.id),
-				ulhc: projected[3],
-				urhc: projected[2],
-				llhc: projected[0],
-				lrhc: projected[1],
-				rotation: degrees,
-			})
-			if key := gocv.WaitKey(1); key != -1 {
-				keyDown = key
-			}
+			pageGeos = append(pageGeos, result.pageGeo)
 		}
+		close(ch)
 		time_geos := time.Now().Sub(start)
 		start = time.Now()
 		if key := gocv.WaitKey(1); key != -1 {
@@ -220,7 +176,7 @@ func main() {
 		for _, pg := range pageGeos {
 			pageids = append(pageids, pg.id)
 		}
-		fmt.Printf("%v\t%v\t%v - %v\n", time_detect.Round(time.Millisecond), time_geos.Round(time.Millisecond), time_scm.Round(time.Millisecond), pageids)
+		fmt.Printf("%v\t%v\t%v - %v\n", time_detect.Round(time.Millisecond), time_geos.Round(time.Microsecond), time_scm.Round(time.Millisecond), pageids)
 
 		// doesn't show up because fullscreen projection still somehow clips
 		gocv.Rectangle(&projection, image.Rect(0, 0, x, y), color.RGBA{255,255,255,255}, 2)
@@ -232,3 +188,67 @@ func main() {
 	}
 }
 
+type detectionResult struct {
+	pageGeo pageGeometry
+	ok	bool
+}
+
+func parseDetection(img gocv.Mat, x, y int, homography gocv.Mat, d C.Detection) detectionResult {
+	// todo: camera calibration (estimate?) + apriltag estimate_tag_pose
+	center := image.Pt(int(d.cx), int(d.cy))
+	// The corners of the tag in image pixel coordinates. These always
+	// wrap counter-clock wise around the tag.
+	points := []image.Point{
+		image.Pt(int(d.corners[0][0]), int(d.corners[0][1])),
+		image.Pt(int(d.corners[1][0]), int(d.corners[1][1])),
+		image.Pt(int(d.corners[2][0]), int(d.corners[2][1])),
+		image.Pt(int(d.corners[3][0]), int(d.corners[3][1])),
+	}
+	gocv.Circle(&img, center, 5, color.RGBA{0, 255, 0, 0}, 2)
+	gocv.PutText(&img, fmt.Sprintf("ID %d", d.id), center, gocv.FontHersheyPlain, 1.2, color.RGBA{255, 0, 0, 0}, 2)
+	// point order seems to be: LLHC, LRHC, URHC, ULHC, stable through rotation (!)
+	// todo: is that true for all tags?
+	//gocv.Circle(&img, points[0], 5, color.RGBA{255, 0, 0, 0}, 2)
+	//gocv.Circle(&img, points[1], 5, color.RGBA{255, 0, 0, 0}, 2)
+	//gocv.Circle(&img, points[2], 5, color.RGBA{255, 0, 0, 0}, 2)
+	//gocv.Circle(&img, points[3], 5, color.RGBA{255, 0, 0, 0}, 2)
+
+	points2f := []gocv.Point2f{
+		{X:float32(d.corners[0][0]), Y:float32(d.corners[0][1])},
+		{X:float32(d.corners[1][0]), Y:float32(d.corners[1][1])},
+		{X:float32(d.corners[2][0]), Y:float32(d.corners[2][1])},
+		{X:float32(d.corners[3][0]), Y:float32(d.corners[3][1])},
+	}
+	pv2f := gocv.NewPoint2fVectorFromPoints(points2f)
+	webcamPoints := gocv.NewMatFromPoint2fVector(pv2f, true)
+	projectionPoints := gocv.NewMat()
+	gocv.PerspectiveTransform(webcamPoints, &projectionPoints, homography)	
+	dstPoints := gocv.NewPointVectorFromMat(projectionPoints)
+
+	// only consider tags within the projection boundary
+	bound := gocv.BoundingRect(dstPoints)
+	if !bound.In(image.Rect(0, 0, x, y)) {
+		return detectionResult{}
+	}
+	projected := dstPoints.ToPoints()
+
+	dx := float64(points[2].X - points[3].X)
+	dy := float64(points[2].Y - points[3].Y)
+	angle := math.Atan2(dy, dx)
+	if angle < 0 {
+		angle += 2 * math.Pi
+	}
+	degrees := angle * 180 / math.Pi
+
+	return detectionResult{
+		pageGeo: pageGeometry{
+			id: int(d.id),
+			ulhc: projected[3],
+			urhc: projected[2],
+			llhc: projected[0],
+			lrhc: projected[1],
+			rotation: degrees,
+		},
+		ok: true,
+	}
+}

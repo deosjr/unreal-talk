@@ -16,9 +16,9 @@ func print_tag() {
 	img := gocv.NewMatWithSize(h, w, gocv.MatTypeCV8UC1)
 	img.SetTo(gocv.NewScalar(255, 255, 255, 255))
 	defer img.Close()
-	size := 4*cm
+	size := 5*cm
 
-	maxX, maxY := 3, 5
+	maxX, maxY := 3, 4
 	for y := 1; y <= maxY; y++ {
 		for x := 1; x <= maxX; x++ {
 			id := maxX*(y-1) + x
@@ -29,7 +29,7 @@ func print_tag() {
 			resized := gocv.NewMat()
 			gocv.Resize(tag, &resized, image.Pt(size, size), 0, 0, gocv.InterpolationNearestNeighbor)
 
-			startx := 300+(x-1)*(size+100)
+			startx := 250+(x-1)*(size+100)
 			endx := startx+size
 			starty := 300+(y-1)*(size+100)
 			endy := starty+size

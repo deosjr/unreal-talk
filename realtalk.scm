@@ -48,7 +48,6 @@
 
 (define (pages-found pages key)
   (fill-image projection 0 0 0) ;; fill black
-  (if (not (= key -1)) (begin (display key) (newline)))
   (for-each (lambda (page)
     (let ((id (car page))
           (points (cadr page))
@@ -61,6 +60,7 @@
     (for-each (lambda (id) (page-moved-from-table id)) removed-pages))
   (set! *pages-in-scene-prev* *pages-in-scene*)
   (set! *pages-in-scene* (make-hash-table))
+  (assert-key key)
   (assert-time)
   (dl-fixpoint! (get-dl)))
 
@@ -201,9 +201,14 @@
 ; note: guile scheme gettimeofday returns a pair of seconds and microseconds in unix epoch 
 (define (assert-time)
   (let (( claims (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (time now ,x) )))))))
-    (for-each (lambda (claim) (dl-retract! dl `(time now ,claim))) claims)
-    (dl-assert! dl 'time 'now (gettimeofday))
-  ))
+    (for-each (lambda (claim) (dl-retract! dl `(time now ,claim))) claims))
+  (dl-assert! dl 'time 'now (gettimeofday)))
+
+; if key == -1 then no key was pressed
+(define (assert-key key)
+  (let (( claims (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (time now ,x) )))))))
+    (for-each (lambda (claim) (dl-retract! dl `(time now ,claim))) claims))
+  (if (not (= key -1)) (dl-assert! dl 'key 'down key)))
 
 (define (execute-page pid)
   (let ((proc (hash-ref *procs* pid #f)))

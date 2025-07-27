@@ -4,12 +4,32 @@
 #include <string.h>
 
 typedef struct {
+	apriltag_detector_t* td;
+} Detector;
+
+Detector* new_detector() {
+	apriltag_family_t* tf = tagStandard41h12_create();
+	apriltag_detector_t* td = apriltag_detector_create();
+	apriltag_detector_add_family(td, tf);
+
+	//td->quad_decimate = 2.0; // default is 2.0
+	//printf("%f\n", td->quad_decimate);
+	Detector* d = (Detector*)malloc(sizeof(Detector));
+	d->td = td;
+	return d;
+}
+
+void free_detector(Detector* d) {
+	apriltag_detector_destroy(d->td);
+}
+
+typedef struct {
 	int id;
 	float cx, cy;
 	float corners[4][2];
 } Detection;
 
-Detection* detect_tags(uint8_t* gray, int width, int height, int* num) {
+Detection* detect_tags(Detector* d, uint8_t* gray, int width, int height, int* num) {
 	image_u8_t img = {
 		.width = width,
 		.height = height,
@@ -17,11 +37,7 @@ Detection* detect_tags(uint8_t* gray, int width, int height, int* num) {
 		.buf = gray
 	};
 
-	apriltag_family_t* tf = tagStandard41h12_create();
-	apriltag_detector_t* td = apriltag_detector_create();
-	apriltag_detector_add_family(td, tf);
-
-	zarray_t* detections = apriltag_detector_detect(td, &img);
+	zarray_t* detections = apriltag_detector_detect(d->td, &img);
 
 	int count = zarray_size(detections);
 	Detection* results = (Detection*) malloc(sizeof(Detection) * count);
@@ -40,10 +56,7 @@ Detection* detect_tags(uint8_t* gray, int width, int height, int* num) {
 
 	*num = count;
 
-	// todo: reuse detector?
 	apriltag_detections_destroy(detections);
-	apriltag_detector_destroy(td);
-	tagStandard41h12_destroy(tf);
 
 	return results;
 }

@@ -129,6 +129,9 @@ func main() {
 	// it should not free it, that's still Go's job
 	scm_sendImageInfo(img, projection, homography, x, y)
 
+	detector := C.new_detector()
+	defer C.free_detector(detector)
+
 	for {
 		start := time.Now()
 		// todo: use some kind of buffer instead of sampling?
@@ -148,7 +151,7 @@ func main() {
 		data := gray.ToBytes()
 
 		var num C.int
-		dets := C.detect_tags((*C.uint8_t)(unsafe.Pointer(&data[0])), C.int(gray.Cols()), C.int(gray.Rows()), &num)
+		dets := C.detect_tags(detector, (*C.uint8_t)(unsafe.Pointer(&data[0])), C.int(gray.Cols()), C.int(gray.Rows()), &num)
 		defer C.free(unsafe.Pointer(dets))
 		time_detect := time.Now().Sub(start)
 		start = time.Now()

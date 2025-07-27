@@ -32,6 +32,7 @@
     (dl-assert! (get-dl) id '(page code) proc)
     (hash-set! *procs* id proc)))
 
+(load-page 1)
 (load-page 4)
 (load-page 11)
 (load-page 12)

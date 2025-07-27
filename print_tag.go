@@ -16,8 +16,21 @@ func print_tag() {
 	img := gocv.NewMatWithSize(h, w, gocv.MatTypeCV8UC1)
 	img.SetTo(gocv.NewScalar(255, 255, 255, 255))
 	defer img.Close()
-	size := 5*cm
+	// a tag is 9x9 pixels, so each pixel is now ~1cm
+	size := 9*cm
 
+	file := fmt.Sprintf("../apriltag-imgs/tagStandard41h12/tag41_12_%05d.png", 1)
+	tag := gocv.IMRead(file, gocv.IMReadGrayScale)
+	defer tag.Close()
+
+	resized := gocv.NewMat()
+	gocv.Resize(tag, &resized, image.Pt(size, size), 0, 0, gocv.InterpolationNearestNeighbor)
+
+	padding := 2*cm
+	r := img.Region(image.Rect(padding, padding, padding+size, padding+size))
+	defer r.Close()
+	resized.CopyTo(&r)
+/*
 	maxX, maxY := 3, 4
 	for y := 1; y <= maxY; y++ {
 		for x := 1; x <= maxX; x++ {
@@ -38,6 +51,7 @@ func print_tag() {
 			resized.CopyTo(&r)
 		}
 	}
+*/
 
 /*
 	file := "../apriltag-imgs/tagStandard41h12/tag41_12_00012.png"

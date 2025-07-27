@@ -61,6 +61,7 @@
     (for-each (lambda (id) (page-moved-from-table id)) removed-pages))
   (set! *pages-in-scene-prev* *pages-in-scene*)
   (set! *pages-in-scene* (make-hash-table))
+  (assert-time)
   (dl-fixpoint! (get-dl)))
 
 (define-syntax make-page-code
@@ -197,22 +198,10 @@
     (for-each (lambda (rule) (dl-retract-rule! dl rule)) rules)
     (for-each (lambda (rule) (dl-retract! dl `(,pid rules ,rule))) rules)))
 
-; When a page is in view, its code is executed. Then when all pages have ran, dl-fixpoint runs all consequences.
-; assumes a single table for now, a div with id "table"
-; TODO: keep a mapping of tables->pages, and only run a page when it is newly detected on a table
-; when a page is removed from the table, retract all when-rules it introduced and all claims/wishes it asserted into that tables' datalog instance.
-; then remove all derived facts and run fixpoint analysis again. This way we can encapsulate state in page code!
-; NOTE: there are no derived facts!!! only followup claims/rules. we can query datalog to get all claims/rules asserted by a page as we run a closure over 'this' when creating rule lambda
-(define (recalculate-pages)
-  (assert-time)
-  ; todo: do we need to reset dl-idb ?
-  ; currently rules execute each time a page is moved, which is not what I'd expect
-  (dl-fixpoint! dl))
-
 ; note: guile scheme gettimeofday returns a pair of seconds and microseconds in unix epoch 
 (define (assert-time)
-  (let (( claims (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (now time ,x) )))))))
-    (for-each (lambda (claim) (dl-retract! dl `(now time ,claim))) claims)
+  (let (( claims (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (time now ,x) )))))))
+    (for-each (lambda (claim) (dl-retract! dl `(time now ,claim))) claims)
     (dl-assert! dl 'time 'now (gettimeofday))
   ))
 

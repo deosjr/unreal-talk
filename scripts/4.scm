@@ -25,7 +25,7 @@
 ; NOTE: region in webcam space not guaranteed to be axis-aligned anymore!
 (When ((,?id selection-rect (,?p . ,?q))
        (,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
- do (let ((proj-pts (bytevector->pointer (points->bytevector-2 ?p ?q)))
+ do (let ((proj-pts (bytevector->pointer (points->bytevector ?p ?q)))
           (out-pts (bytevector->pointer (make-bytevector (* 8 2)))))
       (perspective-transform proj-pts 2 projection->webcam out-pts)
       (let* ((projection-rect (bounding-rect proj-pts 2))
@@ -45,7 +45,3 @@
         (free-image roi-scaled)
         (free-rectangle projection-rect)
         (free-rectangle webcam-rect))))
-
-
-
-

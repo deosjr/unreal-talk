@@ -112,3 +112,35 @@
   (foreign-library-function lib "free_rectangle"
                             #:arg-types (list '*)
                             #:return-type void))
+
+; helper functions
+
+(define (text-size str font scale thickness)
+  (let ((buf (bytevector->pointer (make-bytevector (* 3 (sizeof int)))))
+         (cstr (string->pointer str)))
+    (get-text-size cstr font scale thickness buf)
+    (parse-c-struct buf (list int int int))))
+
+(define (points->bytevector . points)
+  (let* ((n (length points))
+         (bv (make-bytevector (* 4 2 n)))) ; 4 bytes per int, 2 ints per point
+    (let loop ((i 0) (pts points))
+      (unless (null? pts)
+        (let ((pt (car pts)))
+          (bytevector-s32-native-set! bv (* 4 (* 2 i))     (car pt))
+          (bytevector-s32-native-set! bv (* 4 (+ (* 2 i) 1)) (cdr pt))
+          (loop (+ i 1) (cdr pts)))))
+    bv))
+
+(define (pts->coords bv)
+  (let* ((len (bytevector-length bv))
+         (n (/ len 8))) ; 8 bytes per point
+    (let loop ((i 0) (result '()))
+      (if (= i n)
+          (reverse result)
+          (let ((x (bytevector-s32-native-ref bv (* 8 i)))
+                (y (bytevector-s32-native-ref bv (+ (* 8 i) 4))))
+            (loop (+ i 1) (cons (cons x y) result)))))))
+
+(define (draw-on-page ulhc urhc llhc lrhc r g b)
+  (fill-poly projection (bytevector->pointer (points->bytevector ulhc urhc llhc lrhc)) 4 r g b))

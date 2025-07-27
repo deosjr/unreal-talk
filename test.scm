@@ -5,51 +5,6 @@
              (ice-9 eval-string)
              (ice-9 textual-ports))
 
-(define (text-size str font scale thickness)
-  (let ((buf (bytevector->pointer (make-bytevector (* 3 (sizeof int)))))
-         (cstr (string->pointer str)))
-    (get-text-size cstr font scale thickness buf)
-    (parse-c-struct buf (list int int int))))
-
-(define (points->bytevector-2 a b)
-  (let* ((pts (make-bytevector (* 8 2)))
-         (_ (begin
-           (bytevector-s32-native-set! pts 0 (car a))
-           (bytevector-s32-native-set! pts 4 (cdr a))
-           (bytevector-s32-native-set! pts 8 (car b))
-           (bytevector-s32-native-set! pts 12 (cdr b))))) pts))
-
-(define (points->bytevector a b c d)
-  (let* ((pts (make-bytevector (* 8 4)))
-         (_ (begin
-           (bytevector-s32-native-set! pts 0 (car a))
-           (bytevector-s32-native-set! pts 4 (cdr a))
-           (bytevector-s32-native-set! pts 8 (car b))
-           (bytevector-s32-native-set! pts 12 (cdr b))
-           (bytevector-s32-native-set! pts 16 (car c))
-           (bytevector-s32-native-set! pts 20 (cdr c))
-           (bytevector-s32-native-set! pts 24 (car d))
-           (bytevector-s32-native-set! pts 28 (cdr d))))) pts))
-
-(define (pts->coords-2 pts)
-  (list (cons (bytevector-s32-native-ref pts 0)
-              (bytevector-s32-native-ref pts 4))
-        (cons (bytevector-s32-native-ref pts 8)
-              (bytevector-s32-native-ref pts 12))))
-
-(define (pts->coords pts)
-  (list (cons (bytevector-s32-native-ref pts 0)
-              (bytevector-s32-native-ref pts 4))
-        (cons (bytevector-s32-native-ref pts 8)
-              (bytevector-s32-native-ref pts 12))
-        (cons (bytevector-s32-native-ref pts 16)
-              (bytevector-s32-native-ref pts 20))
-        (cons (bytevector-s32-native-ref pts 24)
-              (bytevector-s32-native-ref pts 28))))
-
-(define (draw-on-page ulhc urhc llhc lrhc r g b)
-  (fill-poly projection (bytevector->pointer (points->bytevector ulhc urhc llhc lrhc)) 4 r g b))
-
 (define (vec-add p q)
   (let ((px (car p)) (py (cdr p))
         (qx (car q)) (qy (cdr q)))

@@ -18,6 +18,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"sort"
 	"time"
 	"unsafe"
 
@@ -140,71 +141,86 @@ func main() {
 
 	detector := C.new_detector()
 	defer C.free_detector(detector)
-
+	
+Loop:
 	for {
 		start := time.Now()
-		// todo: use some kind of buffer instead of sampling?
-		// probably better in a separate background process
-		keyDown := gocv.WaitKey(1)
-		if ok := webcam.Read(&img); !ok || img.Empty() {
-			continue
-		}
+		keyDown := -1
+		ch := make(chan []pageGeometry, 1)
+		go aprilTagDetection(detector, webcam, img, homography, x, y, ch)
+		for {
+			select {
+			case pgs := <-ch:
+				time_detect := time.Now().Sub(start)
+				start = time.Now()
+				scm_sendPageGeometries(pgs, keyDown)
+				time_scm := time.Now().Sub(start)
+				tagids := []int{}
+				for _, tag := range pgs {
+					tagids = append(tagids, tag.id)
+				}
+				sort.Ints(tagids)
+				fmt.Printf("%v\t%v\t%v\n", time_detect.Round(time.Millisecond), time_scm.Round(time.Millisecond), tagids)
 
-		// Convert to grayscale
-		gray := gocv.NewMat()
-		gocv.CvtColor(img, &gray, gocv.ColorBGRToGray)
-		defer gray.Close()
-		// TODO: perhaps transform like calibrate does into black/white threshold?
-		// obviously without inversion of black/white!
-		gocv.GaussianBlur(gray, &gray, image.Pt(5, 5), 0, 0, gocv.BorderDefault)
-		gocv.Threshold(gray, &gray, 160, 255, gocv.ThresholdBinary)
-
-		data := gray.ToBytes()
-
-		var num C.int
-		dets := C.detect_tags(detector, (*C.uint8_t)(unsafe.Pointer(&data[0])), C.int(gray.Cols()), C.int(gray.Rows()), &num)
-		defer C.free(unsafe.Pointer(dets))
-		time_detect := time.Now().Sub(start)
-		start = time.Now()
-
-		pageGeos := []pageGeometry{}
-
-		slice := (*[1 << 10]C.Detection)(unsafe.Pointer(dets))[:num:num]
-		ch := make(chan detectionResult, len(slice))
-		for _, d := range slice {
-			go func(d C.Detection) {
-				ch <- parseDetection(img, x, y, homography, d)
-			}(d)
-		}
-		for i:=0; i<len(slice); i++ {
-			result := <-ch
-			if !result.ok {
-				continue
+				// doesn't show up because fullscreen projection still somehow clips
+				gocv.Rectangle(&projection, image.Rect(0, 0, x, y), color.RGBA{255,255,255,255}, 2)
+				window.IMShow(img)
+				projector.IMShow(projection)
+				continue Loop
+			default:
+				if key := gocv.WaitKey(1); key != -1 {
+					keyDown = key
+				}
 			}
-			pageGeos = append(pageGeos, result.pageGeo)
 		}
-		close(ch)
-		time_geos := time.Now().Sub(start)
-		start = time.Now()
-		if key := gocv.WaitKey(1); key != -1 {
-			keyDown = key
-		}
-		scm_sendPageGeometries(pageGeos, keyDown)
-		time_scm := time.Now().Sub(start)
-		pageids := []int{}
-		for _, pg := range pageGeos {
-			pageids = append(pageids, pg.id)
-		}
-		fmt.Printf("%v\t%v\t%v - %v\n", time_detect.Round(time.Millisecond), time_geos.Round(time.Microsecond), time_scm.Round(time.Millisecond), pageids)
-
-		// doesn't show up because fullscreen projection still somehow clips
-		gocv.Rectangle(&projection, image.Rect(0, 0, x, y), color.RGBA{255,255,255,255}, 2)
-		window.IMShow(img)
-		projector.IMShow(projection)
 		if window.WaitKey(1) == 27 {
 			break // ESC to quit
 		}
 	}
+}
+
+// runs in a goroutine because keyboard event listener has to run in main thread
+func aprilTagDetection(detector *C.Detector, webcam *gocv.VideoCapture, img, homography gocv.Mat, x, y int, resch chan []pageGeometry) {
+	// todo: use some kind of buffer instead of sampling?
+	// probably better in a separate background process
+	if ok := webcam.Read(&img); !ok || img.Empty() {
+		resch <- nil
+		return
+	}
+
+	// Convert to grayscale
+	gray := gocv.NewMat()
+	gocv.CvtColor(img, &gray, gocv.ColorBGRToGray)
+	defer gray.Close()
+	// TODO: perhaps transform like calibrate does into black/white threshold?
+	// obviously without inversion of black/white!
+	gocv.GaussianBlur(gray, &gray, image.Pt(5, 5), 0, 0, gocv.BorderDefault)
+	gocv.Threshold(gray, &gray, 160, 255, gocv.ThresholdBinary)
+
+	data := gray.ToBytes()
+
+	var num C.int
+	dets := C.detect_tags(detector, (*C.uint8_t)(unsafe.Pointer(&data[0])), C.int(gray.Cols()), C.int(gray.Rows()), &num)
+	defer C.free(unsafe.Pointer(dets))
+
+	pageGeos := []pageGeometry{}
+
+	slice := (*[1 << 10]C.Detection)(unsafe.Pointer(dets))[:num:num]
+	ch := make(chan detectionResult, len(slice))
+	for _, d := range slice {
+		go func(d C.Detection) {
+			ch <- parseDetection(img, x, y, homography, d)
+		}(d)
+	}
+	for i:=0; i<len(slice); i++ {
+		result := <-ch
+		if !result.ok {
+			continue
+		}
+		pageGeos = append(pageGeos, result.pageGeo)
+	}
+	close(ch)
+	resch <- pageGeos
 }
 
 type detectionResult struct {

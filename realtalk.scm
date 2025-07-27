@@ -28,7 +28,7 @@
   (set! webcam imgptr)
   (set! projection projptr)
   (set! webcam->projection m)
-  (set! projection->webcam (matrix-invert m))
+  (set! projection->webcam (matrix-invert m)) ; todo: free
   (set! projx x)
   (set! projy y))
 

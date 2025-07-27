@@ -1,3 +1,9 @@
+(define (claim-region ulhc urhc llhc lrhc)
+  (let ((region (list ulhc urhc llhc lrhc)))
+    (hash-set! (datalog-idb (get-dl)) `(,this claims (,this has-region ,region)) #t)
+    (hash-set! (datalog-idb (get-dl)) `(,this has-region ,region) #t)
+    (Claim this 'has-region region)))
+
 (When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (let* ((diagonal (vec-from-to ?lrhc ?ulhc))
            ; inner dimensions of 9x9 tag at 1cm per pixel: 5x5cm
@@ -17,4 +23,26 @@
       (draw-line projection tlx tly trx try 255 255 255 2)
       (draw-line projection trx try brx bry 255 255 255 2)
       (draw-line projection brx bry blx bly 255 255 255 2)
-      (draw-line projection blx bly tlx tly 255 255 255 2)))
+      (draw-line projection blx bly tlx tly 255 255 255 2)
+      (claim-region (cons tlx tly) (cons trx try) (cons blx bly) (cons brx bry))))
+
+(When ((,this has-region (,?ulhc ,?urhc ,?llhc ,?lrhc))
+       (,this (page rotation) ,?rotation)) ; clockwise rotation
+ do (let* ((center (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5)))
+           (cx (inexact->exact (round (car center)))) (cy (inexact->exact (round (cdr center))))
+           ; m rotates back to axis-aligned with ulhc at upper left hand corner
+           (m (rotation-matrix-2d cx cy ?rotation 1.0)) ; counter-clockwise rotation!
+           (minv (rotation-matrix-2d cx cy (- ?rotation) 1.0))
+           (img (create-image 1280 720 16)) ; 16 is 3-channel CV8U
+           (mask (create-image 1280 720 0)) ; 0 is 1-channel CV8U
+           (in-pts (bytevector->pointer (points->bytevector ?ulhc ?urhc ?lrhc ?llhc)))
+           (out-pts (bytevector->pointer (make-bytevector (* 8 4)))))
+      (transform in-pts 4 m out-pts) ; rotate to axis-aligned
+      (fill-poly img out-pts 4 0 0 255)
+      (fill-poly mask out-pts 4 255 255 255) ; todo: do we always need mask?
+      (warp-affine img img minv 1280 720)    ; rotate back
+      (warp-affine mask mask minv 1280 720)  ; rotate back
+      (copy-from-to img projection mask)
+      (free-image img)
+      (free-image mask)
+))

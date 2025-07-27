@@ -192,10 +192,9 @@ func aprilTagDetection(detector *C.Detector, webcam *gocv.VideoCapture, img, hom
 	gray := gocv.NewMat()
 	gocv.CvtColor(img, &gray, gocv.ColorBGRToGray)
 	defer gray.Close()
-	// TODO: perhaps transform like calibrate does into black/white threshold?
-	// obviously without inversion of black/white!
-	gocv.GaussianBlur(gray, &gray, image.Pt(5, 5), 0, 0, gocv.BorderDefault)
-	gocv.Threshold(gray, &gray, 160, 255, gocv.ThresholdBinary)
+	// todo: sometimes helps, sometimes hurts detection ?
+	//gocv.GaussianBlur(gray, &gray, image.Pt(5, 5), 0, 0, gocv.BorderDefault)
+	//gocv.Threshold(gray, &gray, 160, 255, gocv.ThresholdBinary)
 
 	data := gray.ToBytes()
 

@@ -138,6 +138,24 @@ void perspective_transform(const int* input_pts, int npts,
     }
 }
 
+void transform(const int* input_pts, int npts,
+               cv::Mat matrix,
+               int* output_pts) {
+    std::vector<cv::Point2f> in_points, out_points;
+    for (int i = 0; i < npts; i++) {
+	float x = input_pts[2*i];
+	float y = input_pts[2*i + 1];
+	in_points.push_back(cv::Point2f(x, y));
+    }
+
+    cv::transform(in_points, out_points, matrix);
+
+    for (int i = 0; i < npts; i++) {
+        output_pts[2*i]   = out_points[i].x;
+        output_pts[2*i+1] = out_points[i].y;
+    }
+}
+
 void resize(Image* src, Image* dst, int sx, int sy, double fx, double fy, int interpolation) {
     cv::resize(src->mat, dst->mat, cv::Size(sx, sy), fx, fy, interpolation);
 }

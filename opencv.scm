@@ -78,6 +78,11 @@
                             #:arg-types (list '* int '* '*)
                             #:return-type void))
 
+(define transform
+  (foreign-library-function lib "transform"
+                            #:arg-types (list '* int '* '*)
+                            #:return-type void))
+
 (define resize
   (foreign-library-function lib "resize"
                             #:arg-types (list '* '* int int double double int)

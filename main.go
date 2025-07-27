@@ -156,6 +156,8 @@ func main() {
 		defer gray.Close()
 		// TODO: perhaps transform like calibrate does into black/white threshold?
 		// obviously without inversion of black/white!
+		gocv.GaussianBlur(gray, &gray, image.Pt(5, 5), 0, 0, gocv.BorderDefault)
+		gocv.Threshold(gray, &gray, 160, 255, gocv.ThresholdBinary)
 
 		data := gray.ToBytes()
 
@@ -221,6 +223,7 @@ func parseDetection(img gocv.Mat, x, y int, homography gocv.Mat, d C.Detection) 
 		image.Pt(int(d.corners[2][0]), int(d.corners[2][1])),
 		image.Pt(int(d.corners[3][0]), int(d.corners[3][1])),
 	}
+	// todo: this shows when capturing webcam appearance, but is debug only info!
 	gocv.Circle(&img, center, 5, color.RGBA{0, 255, 0, 0}, 2)
 	gocv.PutText(&img, fmt.Sprintf("ID %d", d.id), center, gocv.FontHersheyPlain, 1.2, color.RGBA{255, 0, 0, 0}, 2)
 	// point order seems to be: LLHC, LRHC, URHC, ULHC, stable through rotation (!)

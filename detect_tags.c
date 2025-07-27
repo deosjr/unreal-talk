@@ -12,7 +12,11 @@ Detector* new_detector() {
 	apriltag_detector_t* td = apriltag_detector_create();
 	apriltag_detector_add_family(td, tf);
 
+	// optional fine-tuning
+	//td->debug = true;
+	//td->nthreads = 10;
 	//td->quad_decimate = 2.0; // default is 2.0
+	//td->decode_sharpening = 0.5;
 	//printf("%f\n", td->quad_decimate);
 	Detector* d = (Detector*)malloc(sizeof(Detector));
 	d->td = td;
@@ -21,6 +25,7 @@ Detector* new_detector() {
 
 void free_detector(Detector* d) {
 	apriltag_detector_destroy(d->td);
+	//todo: tagStandard41h12_destroy(d->tf);
 }
 
 typedef struct {

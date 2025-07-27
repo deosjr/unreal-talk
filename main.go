@@ -87,6 +87,15 @@ func main() {
 
 	webcam, _ := gocv.OpenVideoCapture(0)
 	defer webcam.Close()
+	// todo: doesn't seem to work, at least on my machine with my webcam
+	/*
+	webcam.Set(gocv.VideoCaptureAutoWB, 0.0)
+	webcam.Set(gocv.VideoCaptureAutoFocus, 0.0)
+	webcam.Set(gocv.VideoCaptureAutoExposure, 0.0)
+	webcam.Set(gocv.VideoCaptureWBTemperature, 3000.0) 	// 2800 - 6500 ?
+	webcam.Set(gocv.VideoCaptureFocus, 100.0)		// 0-255 ?
+	webcam.Set(gocv.VideoCaptureExposure, -3.0)		// ?
+	*/
 
 	window := gocv.NewWindow("Webcam")
 	defer window.Close()

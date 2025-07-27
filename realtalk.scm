@@ -16,10 +16,21 @@
 (define dl (make-new-datalog))
 (define (get-dl) dl)
 
-; this img is a pointer to a cv::Mat that is sent by Golang
-(define img #f)
-(define (init-image ptr)
-  (set! img ptr))
+; these are pointers to cv::Mat that are sent by Golang
+(define webcam #f)
+(define projection #f)
+(define webcam->projection #f)
+(define projection->webcam #f)
+; these are dimensions (in pixels) of the projection image
+(define projx #f)
+(define projy #f)
+(define (init-images imgptr projptr m x y)
+  (set! webcam imgptr)
+  (set! projection projptr)
+  (set! webcam->projection m)
+  (set! projection->webcam (matrix-invert m))
+  (set! projx x)
+  (set! projy y))
 
 (define *pages-in-scene* (make-hash-table))
 (define *pages-in-scene-prev* (make-hash-table))
@@ -36,7 +47,7 @@
     (hashtable-keys *pages-in-scene-prev*)))
 
 (define (pages-found pages key)
-  (fill-image img 0 0 0) ;; fill black
+  (fill-image projection 0 0 0) ;; fill black
   (if (not (= key -1)) (begin (display key) (newline)))
   (for-each (lambda (page)
     (let ((id (car page))

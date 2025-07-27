@@ -35,6 +35,12 @@ void free_image(Image* img) {
     }
 }
 
+Image* matrix_invert(Image* img) {
+    Image* inv = new Image;
+    inv->mat = img->mat.inv();
+    return inv;
+}
+
 typedef struct {
     int width;
     int height;
@@ -108,6 +114,75 @@ void warp_affine(Image* src, Image* dst, Image* transform, int width, int height
         cv::BORDER_CONSTANT,
         cv::Scalar(0)
     );
+}
+
+// input_pts: [x0 y0 x1 y1 ...], length = 2*n
+// matrix: 9 doubles (row-major or OpenCV-style)
+// output_pts: caller-allocated array of length 2*n (x0' y0' x1' y1' ...)
+// note: input/output are ints, but need to be doubles for opencv
+void perspective_transform(const int* input_pts, int npts,
+                           cv::Mat matrix,
+                           int* output_pts) {
+    std::vector<cv::Point2f> in_points, out_points;
+    for (int i = 0; i < npts; i++) {
+	float x = input_pts[2*i];
+	float y = input_pts[2*i + 1];
+	in_points.push_back(cv::Point2f(x, y));
+    }
+
+    cv::perspectiveTransform(in_points, out_points, matrix);
+
+    for (int i = 0; i < npts; i++) {
+        output_pts[2*i]   = out_points[i].x;
+        output_pts[2*i+1] = out_points[i].y;
+    }
+}
+
+void resize(Image* src, Image* dst, int sx, int sy, double fx, double fy, int interpolation) {
+    cv::resize(src->mat, dst->mat, cv::Size(sx, sy), fx, fy, interpolation);
+}
+
+Image* region(Image* img, int minx, int miny, int width, int height) {
+    Image* roi = new Image;
+    cv::Rect rect(minx, miny, width, height);
+    roi->mat = cv::Mat(img->mat, rect);
+    return roi;
+}
+
+typedef struct {
+    cv::Rect rect;
+} Rect;
+
+int rect_width(Rect* r) {
+    return r->rect.width;
+}
+
+int rect_height(Rect* r) {
+    return r->rect.height;
+}
+
+Image* region_from_rect(Image* img, Rect* r) {
+    Image* roi = new Image;
+    roi->mat = cv::Mat(img->mat, r->rect);
+    return roi;
+}
+
+Rect* boundingRect(const int* points, int npts) {
+    std::vector<cv::Point> input_pts;
+    for (int i = 0; i < npts; i++) {
+	int x = points[2*i];
+	int y = points[2*i + 1];
+	input_pts.push_back(cv::Point(x, y));
+    }
+    Rect* r = new Rect;
+    r->rect = cv::boundingRect(input_pts);
+    return r;
+}
+
+void free_rectangle(Rect* r) {
+    if (r != nullptr) {
+	delete r;
+    }
 }
 
 }

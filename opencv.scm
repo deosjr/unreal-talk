@@ -28,6 +28,11 @@
                             #:arg-types (list '*)
                             #:return-type void))
 
+(define matrix-invert
+  (foreign-library-function lib "matrix_invert"
+                            #:arg-types (list '*)
+                            #:return-type '*))
+
 (define get-text-size
   (foreign-library-function lib "getTextSize"
                             #:arg-types (list '* int double int '*)
@@ -66,4 +71,44 @@
 (define warp-affine
   (foreign-library-function lib "warp_affine"
                             #:arg-types (list '* '* '* int int)
+                            #:return-type void))
+
+(define perspective-transform
+  (foreign-library-function lib "perspective_transform"
+                            #:arg-types (list '* int '* '*)
+                            #:return-type void))
+
+(define resize
+  (foreign-library-function lib "resize"
+                            #:arg-types (list '* '* int int double double int)
+                            #:return-type void))
+
+(define region
+  (foreign-library-function lib "region"
+                            #:arg-types (list '* int int int int)
+                            #:return-type '*))
+
+(define region-from-rect
+  (foreign-library-function lib "region_from_rect"
+                            #:arg-types (list '* '*)
+                            #:return-type '*))
+
+(define bounding-rect
+  (foreign-library-function lib "boundingRect"
+                            #:arg-types (list '* int)
+                            #:return-type '*))
+
+(define rect-width
+  (foreign-library-function lib "rect_width"
+                            #:arg-types (list '*)
+                            #:return-type int))
+
+(define rect-height
+  (foreign-library-function lib "rect_height"
+                            #:arg-types (list '*)
+                            #:return-type int))
+
+(define free-rectangle
+  (foreign-library-function lib "free_rectangle"
+                            #:arg-types (list '*)
                             #:return-type void))

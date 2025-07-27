@@ -52,12 +52,18 @@ func scm_sendPageGeometries(geos []pageGeometry, key int) {
 	C.scm_call_2(f, list, C.scm_from_int(C.int(key)))
 }
 
-func scm_sendImagePointer(img gocv.Mat) {
-	ptr := unsafe.Pointer(img.Ptr())
-	fname := C.CString("init-image")
+func scm_sendImageInfo(img, proj, m gocv.Mat, x, y int) {
+	imgptr := unsafe.Pointer(img.Ptr())
+	projptr := unsafe.Pointer(proj.Ptr())
+	mptr := unsafe.Pointer(m.Ptr())
+	fname := C.CString("init-images")
 	defer C.free(unsafe.Pointer(fname))
 	f := C.scm_variable_ref(C.scm_c_lookup(fname))
-	C.scm_call_1(f, C.scm_from_pointer(ptr, nil))
+	C.scm_call_5(f, C.scm_from_pointer(imgptr, nil),
+                        C.scm_from_pointer(projptr, nil),
+                        C.scm_from_pointer(mptr, nil),
+                        C.scm_from_int(C.int(x)),
+                        C.scm_from_int(C.int(y)))
 }
 
 type pageGeometry struct {
@@ -96,11 +102,6 @@ func main() {
 	projection := gocv.NewMatWithSize(y, x, gocv.MatTypeCV8UC3)
 	defer projection.Close()
 
-	// send the projection pointer to Guile, once.
-	// it should not free it, that's still Go's job
-	// todo: send projector dimensions as well?
-	scm_sendImagePointer(projection)
-
 	projector.IMShow(projection)
 	fmt.Println("drag projector screen to projector, then press 'f' to fullscreen")
 	for {
@@ -111,9 +112,9 @@ func main() {
 	}
 
 	data := []float64{
-1.2580602714027673, 0.10159008314992518, -499.2400878211504,
--0.04726029080388189, 1.3636369977843847, -32.42505965294924,
--4.052051859479486e-05, 0.00011646813994832703, 1,
+1.553988398101568, 0.29011953117421574, -787.8714038188871,
+-0.03765830590661081, 1.7994402046641018, -755.5284858532856,
+-4.781279626993818e-05, 0.000393693676763471, 1,
     	}
 	
     	homography := gocv.NewMatWithSize(3, 3, gocv.MatTypeCV64F)
@@ -123,6 +124,10 @@ func main() {
     	    	homography.SetDoubleAt(i, j, data[3*i+j])
     	    }
     	}
+
+	// send the projection pointer to Guile, once.
+	// it should not free it, that's still Go's job
+	scm_sendImageInfo(img, projection, homography, x, y)
 
 	for {
 		start := time.Now()

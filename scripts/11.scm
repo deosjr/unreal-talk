@@ -14,4 +14,4 @@
         ((< h 5) (set! r x) (set! g 0) (set! b c))
         ((<= h 6) (set! r c) (set! g 0) (set! b x)))
       (define (scale v) (inexact->exact (round (* 255 v))))
-      (fill-image img (scale r) (scale g) (scale b))))
+      (fill-image projection (scale r) (scale g) (scale b))))

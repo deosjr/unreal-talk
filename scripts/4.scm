@@ -1,27 +1,51 @@
-(Wish this 'has-whiskers #t)
+(Claim this 'hand 'left)
 
-(When ((,this points-at ,?p)
-       (,?p (page rotation) ,?rotation)
-       (,?p (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
- do (draw-on-page ?ulhc ?urhc ?lrhc ?llhc 0 255 0)
-    (let* ((str (number->string ?p))
-           (testsize (text-size str 0 1.0 2))
-           (width (car testsize))
-           (height (cadr testsize))
-           (baseline (caddr testsize)) ; todo: use baseline
-           (temp-img (create-image 1280 720 16)) ; 16 is 3-channel CV8U
-           (temp-mask (create-image 1280 720 0)) ; 0 is 1-channel CV8U
-           (mid (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5)))
-           (midx (inexact->exact (round (car mid)))) (midy (inexact->exact (round (cdr mid))))
-           (m (rotation-matrix-2d midx midy (- ?rotation) 1.0)) ; assumes counter-clockwise rotation!
-           (halfsize (vec-mul (cons (- width) height) 0.5))
-           (textbottomleft (vec-add halfsize mid))
-           (tx (inexact->exact (round (car textbottomleft)))) (ty (inexact->exact (round (cdr textbottomleft)))))
-    (put-text temp-img (string->pointer str) tx ty 0 1.0 255 255 255 2)  ; draw color to 3-channel img
-    (put-text temp-mask (string->pointer str) tx ty 0 1.0 255 255 255 2) ; draw white to 1-channel mask
-    (warp-affine temp-img temp-img m 1280 720) ; officially doesn't support in-place modification?
-    (warp-affine temp-mask temp-mask m 1280 720)
-    (copy-from-to temp-img img temp-mask)
-    (free-image temp-img)
-    (free-image temp-mask)
+(define (claim-selection-rect p q)
+  (let ((id (gensym))
+        (rect (cons p q)))
+    (hash-set! (datalog-idb (get-dl)) `(,this claims (,id selection-rect ,rect)) #t)
+    (hash-set! (datalog-idb (get-dl)) `(,id selection-rect ,rect) #t)
+    (Claim id 'selection-rect rect)))
+
+(When ((,?p hand right)
+       (,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc))
+       (,?p (page points) (,?pulhc ,?purhc ,?pllhc ,?plrhc)))
+ do (let* ((left-mid (vec-add ?ulhc (vec-mul (vec-from-to ?lrhc ?ulhc) (/ 2 5))))
+           (left-midx (inexact->exact (round (car left-mid)))) (left-midy (inexact->exact (round (cdr left-mid))))
+           (right-mid (vec-add ?pulhc (vec-mul (vec-from-to ?plrhc ?pulhc) (/ 2 5))))
+           (right-midx (inexact->exact (round (car right-mid)))) (right-midy (inexact->exact (round (cdr right-mid)))) )
+      (draw-rectangle projection left-midx left-midy right-midx right-midy 255 255 255 2)
+      (claim-selection-rect (cons left-midx left-midy) (cons right-midx right-midy))
 ))
+
+; take region p-q in webcam space
+; resize webcam region to projection space based on p-q size
+; take a different p-q sized region in projection space
+; copy resized webcam region to that region (without mask?)
+; NOTE: region in webcam space not guaranteed to be axis-aligned anymore!
+(When ((,?id selection-rect (,?p . ,?q))
+       (,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
+ do (let ((proj-pts (bytevector->pointer (points->bytevector-2 ?p ?q)))
+          (out-pts (bytevector->pointer (make-bytevector (* 8 2)))))
+      (perspective-transform proj-pts 2 projection->webcam out-pts)
+      (let* ((projection-rect (bounding-rect proj-pts 2))
+             (pw (rect-width projection-rect))
+             (ph (rect-height projection-rect))
+             (webcam-rect (bounding-rect out-pts 2))
+             (webcam-roi (region-from-rect webcam webcam-rect))
+             (dest (region projection 0 0 pw ph))
+             (mask (create-image pw ph 0))
+             (roi-scaled (create-image pw ph 16)))
+        (fill-image mask 255 255 255)
+        (resize webcam-roi roi-scaled pw ph 0 0 3) ; cv::INTER_AREA=3
+        (copy-from-to roi-scaled dest mask)
+        (free-image webcam-roi)
+        (free-image dest)
+        (free-image mask)
+        (free-image roi-scaled)
+        (free-rectangle projection-rect)
+        (free-rectangle webcam-rect))))
+
+
+
+

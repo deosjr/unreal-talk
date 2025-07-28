@@ -1,3 +1,5 @@
+; This script colors the entire projection based on its rotation
+
 (define (fmod x y)
   (- x (* y (floor (/ x y)))))
 

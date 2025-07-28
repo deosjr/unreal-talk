@@ -1,3 +1,5 @@
+; This script provides basic support for whiskers (ie pointing at things)
+
 ; whisker length == page height
 (define (claim-has-whiskers p)
   (hash-set! (datalog-idb (get-dl)) `(,this claims (,p has-whiskers #t)) #t)

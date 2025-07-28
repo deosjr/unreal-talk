@@ -1,3 +1,6 @@
+; This script was made for a 9x9cm tag in the upper lefthand corner of an A4 paper.
+; It draws the outline of the A4 paper in white.
+
 (When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (let* ((diagonal (vec-from-to ?lrhc ?ulhc))
            ; inner dimensions of 9x9 tag at 1cm per pixel: 5x5cm

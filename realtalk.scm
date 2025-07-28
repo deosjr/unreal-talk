@@ -33,6 +33,7 @@
   (set! projx x)
   (set! projy y))
 
+(define *background-pages* '())
 (define *pages-in-scene* (make-hash-table))
 (define *pages-in-scene-prev* (make-hash-table))
 
@@ -218,6 +219,22 @@
   (let (( claims (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (time now ,x) )))))))
     (for-each (lambda (claim) (dl-retract! dl `(time now ,claim))) claims))
   (if (not (= key -1)) (dl-assert! dl 'key 'down key)))
+
+(define (read-page-code id)
+  (call-with-input-file (format #f "scripts/~d.scm" id) (lambda (port)
+    (get-string-all port)) #:encoding "utf-8"))
+
+(define (load-page id)
+  (let* ((str (read-page-code id))
+         (proc (eval-string (format #f "(make-page-code ~a)" str))))
+    ; todo: assert the string version as well
+    (dl-assert! (get-dl) id '(page code) proc)
+    (hash-set! *procs* id proc)))
+
+(define (load-background-page id)
+  (load-page id)
+  (page-moved-onto-table id)
+  (set! *background-pages* (cons id *background-pages*)))
 
 (define (execute-page pid)
   (let ((proc (hash-ref *procs* pid #f)))

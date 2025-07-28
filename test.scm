@@ -21,17 +21,9 @@
 
 (define (vec-from-to p q) (vec-sub q p))
 
-(define (read-page-code id)
-  (call-with-input-file (format #f "scripts/~d.scm" id) (lambda (port)
-    (get-string-all port)) #:encoding "utf-8"))
+(load-background-page 6) ; whiskers
 
-(define (load-page id)
-  (let* ((str (read-page-code id))
-         (proc (eval-string (format #f "(make-page-code ~a)" str))))
-    ; todo: assert the string version as well
-    (dl-assert! (get-dl) id '(page code) proc)
-    (hash-set! *procs* id proc)))
-
+; todo: load when first seeing a tag?
 (load-page 1)
 (load-page 4)
 (load-page 11)

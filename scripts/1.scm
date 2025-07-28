@@ -1,9 +1,3 @@
-(define (claim-region ulhc urhc llhc lrhc)
-  (let ((region (list ulhc urhc llhc lrhc)))
-    (hash-set! (datalog-idb (get-dl)) `(,this claims (,this has-region ,region)) #t)
-    (hash-set! (datalog-idb (get-dl)) `(,this has-region ,region) #t)
-    (Claim this 'has-region region)))
-
 (When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (let* ((diagonal (vec-from-to ?lrhc ?ulhc))
            ; inner dimensions of 9x9 tag at 1cm per pixel: 5x5cm
@@ -24,7 +18,7 @@
       (draw-line projection trx try brx bry 255 255 255 2)
       (draw-line projection brx bry blx bly 255 255 255 2)
       (draw-line projection blx bly tlx tly 255 255 255 2)
-      (claim-region (cons tlx tly) (cons trx try) (cons blx bly) (cons brx bry))))
+      (Claim-derived this this 'has-region (list (cons tlx tly) (cons trx try) (cons blx bly) (cons brx bry)))))
 
 (When ((,this has-region (,?ulhc ,?urhc ,?llhc ,?lrhc))
        (,this (page rotation) ,?rotation)) ; clockwise rotation

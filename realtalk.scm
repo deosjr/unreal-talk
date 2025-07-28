@@ -9,6 +9,7 @@
 ; --> see below, inject 'this' explicitly in embedded Claim/Wish. Disallow nested When rules
 ; - derived Claim/Wish is not supported in When macro, behaviour should be different
 ; --> When macro replaces Claim/Wish with DerivedClaim/DerivedWish?
+; FIX for both (temporarily): Claim-derived
 
 (define *procs* (make-hash-table))
 (define *rule-procs* (make-hash-table))
@@ -141,6 +142,14 @@
              (hash-set! *rule-procs* code-name code)
              (dl-assert! (get-dl) this 'rules rule)
              (dl-assert-rule! (get-dl) rule))))))))
+
+; derived Claim, ie Claim used within a When. Its facts are more fleeting than top-level Claims.
+; todo: to be substituted automatically for a Claim within a When body
+(define (Claim-derived this id attr value)
+  (hash-set! (datalog-idb (get-dl)) `(,this claims (,id ,attr ,value)) #t)
+  (hash-set! (datalog-idb (get-dl)) `(,id ,attr ,value) #t)
+  (dl-assert! (get-dl) this 'claims (list id attr value))
+  (dl-assert! (get-dl) id attr value))
 
 ; redefine dl-fixpoint! injecting code execution as result of rules
 (define (dl-fixpoint! dl)

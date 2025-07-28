@@ -26,6 +26,7 @@ At some point this might be simplified by only using Guile Scheme, but perhaps h
 
 ## Log
 
+* 28-07-2025: Claim-derived as temporary fix for Claim-within-When bugs
 * 27-07-2025: Guile openCV bindings are getting painful to write, need better wrappers
 * 26-07-2025: Parallelizing tag parsing speeds things up dramatically
 * 26-07-2025: Simple logging shows: tags flickering causes increasing lag in Scheme (fixed)

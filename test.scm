@@ -21,6 +21,7 @@
 
 (define (vec-from-to p q) (vec-sub q p))
 
+(load-background-page 3) ; labeling
 (load-background-page 6) ; whiskers
 
 ; todo: load when first seeing a tag?

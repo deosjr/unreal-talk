@@ -152,6 +152,10 @@
   (dl-assert! (get-dl) this 'claims (list id attr value))
   (dl-assert! (get-dl) id attr value))
 
+(define (Wish-derived this id attr value)
+  (hash-set! (datalog-idb (get-dl)) `(,this wishes (,id ,attr ,value)) #t)
+  (dl-assert! (get-dl) this 'wishes (list id attr value)))
+
 ; redefine dl-fixpoint! injecting code execution as result of rules
 (define (dl-fixpoint! dl)
   (for-each (lambda (fact) (dl-retract! dl fact)) (hashtable-keys (datalog-idb dl)))

@@ -41,4 +41,7 @@
       (copy-from-to img projection mask)
       (free-image img)
       (free-image mask)
+      (free-image m)
+      (free-image minv)
+      (Wish-derived this this 'labeled "HELLO")
 ))

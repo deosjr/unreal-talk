@@ -231,8 +231,7 @@
 (define (load-page id)
   (let* ((str (read-page-code id))
          (proc (eval-string (format #f "(make-page-code ~a)" str))))
-    ; todo: assert the string version as well
-    (dl-assert! (get-dl) id '(page code) proc)
+    (dl-assert! (get-dl) id '(page code) str)
     (hash-set! *procs* id proc)))
 
 (define (load-background-page id)

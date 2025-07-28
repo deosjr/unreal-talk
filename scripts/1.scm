@@ -1,5 +1,5 @@
 ; this script was made for a 9x9cm tag in the upper lefthand corner of an A4 paper
-
+ 
 (When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (let* ((diagonal (vec-from-to ?lrhc ?ulhc))
            ; inner dimensions of 9x9 tag at 1cm per pixel: 5x5cm
@@ -31,12 +31,20 @@
       (draw-line projection brx bry blx bly 255 255 255 2)
       (draw-line projection blx bly tlx tly 255 255 255 2)
       (Claim-derived this this 'has-region (list (cons etlx etly) (cons etrx etry) (cons eblx ebly) (cons ebrx ebry)))))
-
+ 
+; x and y are lower left corner in aab. rotation is left to the caller.
+; caller is also assumed to draw onto a poly-fill, ie mask includes text already.
+(define (draw-editor-line img str x y font scale r g b thickness)
+    (put-text img (string->pointer str) x y font scale r g b thickness)  ; draw color to 3-channel img)
+ 
 (When ((,this has-region (,?ulhc ,?urhc ,?llhc ,?lrhc))
        (,this (page rotation) ,?rotation) ; clockwise rotation
        (,this (page code) ,?str))
  do (let* ((center (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5)))
            (cx (inexact->exact (round (car center)))) (cy (inexact->exact (round (cdr center))))
+           (textsize (text-size "gh" 0 0.5 1))
+           (height (+ (cadr textsize) 8)) ; 8 padding pixels
+           (lines (string-tokenize ?str (char-set-complement (char-set #\newline))))
            ; m rotates back to axis-aligned with ulhc at upper left hand corner
            (m (rotation-matrix-2d cx cy ?rotation 1.0)) ; counter-clockwise rotation!
            (minv (rotation-matrix-2d cx cy (- ?rotation) 1.0))
@@ -45,14 +53,20 @@
            (in-pts (bytevector->pointer (points->bytevector ?ulhc ?urhc ?lrhc ?llhc)))
            (out-pts (bytevector->pointer (make-bytevector (* 8 4)))))
       (transform in-pts 4 m out-pts) ; rotate to axis-aligned
-      (fill-poly img out-pts 4 0 0 255)
-      (fill-poly mask out-pts 4 255 255 255) ; todo: do we always need mask?
-      (warp-affine img img minv 1280 720)    ; rotate back
-      (warp-affine mask mask minv 1280 720)  ; rotate back
-      (copy-from-to img projection mask)
-      (free-image img)
-      (free-image mask)
-      (free-image m)
-      (free-image minv)
-      (Wish-derived this this 'labeled ?str)
-))
+      (let* ((aabb-pts (pts->coords out-pts 4))
+             (aabb-ulhc (car aabb-pts))
+             (aabb-lrhc (caddr aabb-pts))
+             (aabb-ulhcx (inexact->exact (round (car aabb-ulhc)))) (aabb-ulhcy (inexact->exact (round (cdr aabb-ulhc))))
+             (aabb-lrhcx (inexact->exact (round (car aabb-lrhc)))) (aabb-lrhcy (inexact->exact (round (cdr aabb-lrhc)))))
+        (draw-rectangle img aabb-ulhcx aabb-ulhcy aabb-lrhcx aabb-lrhcy 0 0 255 -1)
+        (draw-rectangle mask aabb-ulhcx aabb-ulhcy aabb-lrhcx aabb-lrhcy 255 255 255 -1)
+        (draw-editor-line img (car lines) aabb-ulhcx (+ aabb-ulhcy height) 0 0.5 255 255 255 1)
+        (draw-editor-line img (cadr lines) aabb-ulhcx (+ aabb-ulhcy (* 2 height)) 0 0.5 255 255 255 1)
+        (draw-editor-line img (caddr lines) aabb-ulhcx (+ aabb-ulhcy (* 3 height)) 0 0.5 255 255 255 1)
+        (warp-affine img img minv 1280 720)    ; rotate back
+        (warp-affine mask mask minv 1280 720)  ; rotate back
+        (copy-from-to img projection mask)
+        (free-image img)
+        (free-image mask)
+        (free-image m)
+        (free-image minv))))

@@ -133,8 +133,8 @@ void perspective_transform(const int* input_pts, int npts,
     cv::perspectiveTransform(in_points, out_points, matrix);
 
     for (int i = 0; i < npts; i++) {
-        output_pts[2*i]   = out_points[i].x;
-        output_pts[2*i+1] = out_points[i].y;
+        output_pts[2*i]   = static_cast<int>(std::lround(out_points[i].x));
+        output_pts[2*i+1] = static_cast<int>(std::lround(out_points[i].y));
     }
 }
 
@@ -151,8 +151,8 @@ void transform(const int* input_pts, int npts,
     cv::transform(in_points, out_points, matrix);
 
     for (int i = 0; i < npts; i++) {
-        output_pts[2*i]   = out_points[i].x;
-        output_pts[2*i+1] = out_points[i].y;
+        output_pts[2*i]   = static_cast<int>(std::lround(out_points[i].x));
+        output_pts[2*i+1] = static_cast<int>(std::lround(out_points[i].y));
     }
 }
 

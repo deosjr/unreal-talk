@@ -137,11 +137,11 @@
           (loop (+ i 1) (cdr pts)))))
     bv))
 
-(define (pts->coords bv)
-  (let* ((len (bytevector-length bv))
-         (n (/ len 8))) ; 8 bytes per point
+(define (pts->coords pbv len)
+  (let* ((n (* len 8)) ; 8 bytes per point
+         (bv (pointer->bytevector pbv n)))
     (let loop ((i 0) (result '()))
-      (if (= i n)
+      (if (= i len)
           (reverse result)
           (let ((x (bytevector-s32-native-ref bv (* 8 i)))
                 (y (bytevector-s32-native-ref bv (+ (* 8 i) 4))))

@@ -1,5 +1,7 @@
 ; this script was made for a 9x9cm tag in the upper lefthand corner of an A4 paper
 
+(Wish this 'has-whiskers #t)
+
 (define (coord->int x)
   (inexact->exact (round x)))
 
@@ -48,7 +50,7 @@
     (draw-rectangle mask ulhcx ulhcy lrhcx lrhcy 255 255 255 -1)
     (let loop ((lst lines) (y 1))
       (let ((dy (* y line-height)))
-        (if (< dy ytotal)
+        (if (and (< dy ytotal) (not (null? lst)))
           (let ((line (car lst)))
             (draw-editor-line img line ulhcx (+ ulhcy dy) 0 0.5 255 255 255 1)
             (loop (cdr lst) (+ y 1))))))
@@ -56,7 +58,8 @@
 
 (When ((,this has-region (,?ulhc ,?urhc ,?llhc ,?lrhc))
        (,this (page rotation) ,?rotation) ; clockwise rotation
-       (,this (page code) ,?str))
+       (,this points-at ,?p)
+       (,?p (page code) ,?str))
  do (let* ((center (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5)))
            (cx (inexact->exact (round (car center)))) (cy (inexact->exact (round (cdr center))))
            (textsize (text-size "gh" 0 0.5 1))

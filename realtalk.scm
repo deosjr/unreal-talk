@@ -15,7 +15,7 @@
 ; For now we will use an in-memory db so state is still scoped to RealTalkOS lifetime
 ; https://dynamicland.org/archive/2020/Memories
 ; "The remembered statements on an object are only there when the object itself is there and running"
-; Replacing is automatic but values are unique per key, for now
+; Values are unique per key, for now. Replacing still needs a Forget/Remember combo (?)
 ; Page-local vars are still a thing too, they are just less reliable since detection isn't 100% stable
 
 (define *procs* (make-hash-table))
@@ -232,8 +232,8 @@
 
 ; if key == -1 then no key was pressed
 (define (assert-key key)
-  (let (( claims (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (time now ,x) )))))))
-    (for-each (lambda (claim) (dl-retract! dl `(time now ,claim))) claims))
+  (let (( claims (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (key down ,x) )))))))
+    (for-each (lambda (claim) (dl-retract! dl `(key down ,claim))) claims))
   (if (not (= key -1)) (dl-assert! dl 'key 'down key)))
 
 (define (read-page-code id)

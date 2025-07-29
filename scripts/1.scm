@@ -2,8 +2,34 @@
 
 (Wish this 'has-whiskers #t)
 
-(define (coord->int x)
-  (inexact->exact (round x)))
+(define line-num 1)
+(define cursor-x 0)
+
+(When ((,this line-num ,?line-num)) ; from Remember
+ do (set! line-num ?line-num))
+(When ((,this cursor-x ,?x))
+ do (set! cursor-x ?x))
+
+; todo: Remember current script size, don't go out of bounds
+(When ((key down 106)) ; j
+ do (Forget this this 'line-num)
+    (Remember this this 'line-num (+ line-num 1)))
+
+(When ((key down 107)) ; k
+ do (if (> line-num 1)
+      (let ((new-num (- line-num 1)))
+        (Forget this this 'line-num)
+        (Remember this this 'line-num new-num))))
+
+(When ((key down 104)) ; h
+ do (if (> cursor-x 0)
+      (let ((newx (- cursor-x 1)))
+        (Forget this this 'cursor-x)
+        (Remember this this 'cursor-x newx))))
+
+(When ((key down 108)) ; l
+ do (Forget this this 'cursor-x)
+    (Remember this this 'cursor-x (+ cursor-x 1)))
 
 (When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (let* ((diagonal (vec-from-to ?lrhc ?ulhc))
@@ -42,11 +68,15 @@
 (define (draw-editor-line img str x y font scale r g b thickness)
     (put-text img (string->pointer str) x y font scale r g b thickness))  ; draw color to 3-channel img
 
-(define (draw-editor-lines img mask lines ulhc lrhc line-height font scale r g b thickness)
+(define (draw-editor-lines img mask lines ulhc lrhc char-width line-height font scale r g b thickness)
   (let* ((ulhcx (coord->int (car ulhc))) (ulhcy (coord->int (cdr ulhc)))
          (lrhcx (coord->int (car lrhc))) (lrhcy (coord->int (cdr lrhc)))
+         (line-y (+ ulhcy (* line-height (- line-num 1))))
+         (cx (+ ulhcx (* char-width cursor-x)))
          (ytotal (- lrhcy ulhcy)))
     (draw-rectangle img ulhcx ulhcy lrhcx lrhcy 0 0 255 -1)
+    (draw-rectangle img ulhcx line-y lrhcx (+ line-y line-height) 100 100 255 -1)
+    (draw-rectangle img cx line-y (+ cx char-width) (+ line-y line-height) 150 150 255 -1)
     (draw-rectangle mask ulhcx ulhcy lrhcx lrhcy 255 255 255 -1)
     (let loop ((lst lines) (y 1))
       (let ((dy (* y line-height)))
@@ -62,7 +92,8 @@
        (,?p (page code) ,?str))
  do (let* ((center (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5)))
            (cx (inexact->exact (round (car center)))) (cy (inexact->exact (round (cdr center))))
-           (textsize (text-size "gh" 0 0.5 1))
+           (textsize (text-size "gh" 0 0.5 1)) ;gh give upper/lower bounds for line
+           (charwidth (/ (car textsize) 2)) ; assumes mono!
            (height (+ (cadr textsize) 8)) ; 8 padding pixels
            (lines (string-split ?str #\newline))
            ; m rotates back to axis-aligned with ulhc at upper left hand corner
@@ -76,7 +107,7 @@
       (let* ((aabb-pts (pts->coords out-pts 4))
              (aabb-ulhc (car aabb-pts))
              (aabb-lrhc (caddr aabb-pts)))
-        (draw-editor-lines img mask lines aabb-ulhc aabb-lrhc height 0 0.5 255 255 255 1)
+        (draw-editor-lines img mask lines aabb-ulhc aabb-lrhc charwidth height 0 0.5 255 255 255 1)
         (warp-affine img img minv 1280 720)    ; rotate back
         (warp-affine mask mask minv 1280 720)  ; rotate back
         (copy-from-to img projection mask)

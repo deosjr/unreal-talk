@@ -147,5 +147,8 @@
                 (y (bytevector-s32-native-ref bv (+ (* 8 i) 4))))
             (loop (+ i 1) (cons (cons x y) result)))))))
 
+(define (coord->int x)
+  (inexact->exact (round x)))
+
 (define (draw-on-page ulhc urhc llhc lrhc r g b)
   (fill-poly projection (bytevector->pointer (points->bytevector ulhc urhc llhc lrhc)) 4 r g b))

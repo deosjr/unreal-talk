@@ -1,5 +1,8 @@
 ; this script was made for a 9x9cm tag in the upper lefthand corner of an A4 paper
 
+(define (coord->int x)
+  (inexact->exact (round x)))
+
 (When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (let* ((diagonal (vec-from-to ?lrhc ?ulhc))
            ; inner dimensions of 9x9 tag at 1cm per pixel: 5x5cm
@@ -14,18 +17,18 @@
            (topright (vec-add topleft rightvec))
            (bottomleft (vec-add topleft downvec))
            (bottomright (vec-add bottomleft rightvec))
-           (tlx (inexact->exact (round (car topleft)))) (tly (inexact->exact (round (cdr topleft)))) 
-           (trx (inexact->exact (round (car topright)))) (try (inexact->exact (round (cdr topright)))) 
-           (blx (inexact->exact (round (car bottomleft)))) (bly (inexact->exact (round (cdr bottomleft)))) 
-           (brx (inexact->exact (round (car bottomright)))) (bry (inexact->exact (round (cdr bottomright))))
+           (tlx (coord->int (car topleft))) (tly (coord->int (cdr topleft)))
+           (trx (coord->int (car topright))) (try (coord->int (cdr topright)))
+           (blx (coord->int (car bottomleft))) (bly (coord->int (cdr bottomleft)))
+           (brx (coord->int (car bottomright))) (bry (coord->int (cdr bottomright)))
            (editorulhc (vec-add (vec-add ?llhc (vec-mul inner-right-vec (- 2 ))) (vec-mul inner-down-vec 3)))
            (editorurhc (vec-add editorulhc (vec-mul inner-right-vec 17)))
            (editorlrhc (vec-add editorurhc (vec-mul inner-down-vec 16)))
            (editorllhc (vec-add editorulhc (vec-mul inner-down-vec 16)))
-           (etlx (inexact->exact (round (car editorulhc)))) (etly (inexact->exact (round (cdr editorulhc)))) 
-           (etrx (inexact->exact (round (car editorurhc)))) (etry (inexact->exact (round (cdr editorurhc))))
-           (eblx (inexact->exact (round (car editorllhc)))) (ebly (inexact->exact (round (cdr editorllhc)))) 
-           (ebrx (inexact->exact (round (car editorlrhc)))) (ebry (inexact->exact (round (cdr editorlrhc)))))
+           (etlx (coord->int (car editorulhc))) (etly (coord->int (cdr editorulhc)))
+           (etrx (coord->int (car editorurhc))) (etry (coord->int (cdr editorurhc)))
+           (eblx (coord->int (car editorllhc))) (ebly (coord->int (cdr editorllhc)))
+           (ebrx (coord->int (car editorlrhc))) (ebry (coord->int (cdr editorlrhc))))
       (draw-line projection tlx tly trx try 255 255 255 2)
       (draw-line projection trx try brx bry 255 255 255 2)
       (draw-line projection brx bry blx bly 255 255 255 2)
@@ -36,6 +39,20 @@
 ; caller is also assumed to draw onto a poly-fill, ie mask includes text already.
 (define (draw-editor-line img str x y font scale r g b thickness)
     (put-text img (string->pointer str) x y font scale r g b thickness))  ; draw color to 3-channel img
+
+(define (draw-editor-lines img mask lines ulhc lrhc line-height font scale r g b thickness)
+  (let* ((ulhcx (coord->int (car ulhc))) (ulhcy (coord->int (cdr ulhc)))
+         (lrhcx (coord->int (car lrhc))) (lrhcy (coord->int (cdr lrhc)))
+         (ytotal (- lrhcy ulhcy)))
+    (draw-rectangle img ulhcx ulhcy lrhcx lrhcy 0 0 255 -1)
+    (draw-rectangle mask ulhcx ulhcy lrhcx lrhcy 255 255 255 -1)
+    (let loop ((lst lines) (y 1))
+      (let ((dy (* y line-height)))
+        (if (< dy ytotal)
+          (let ((line (car lst)))
+            (draw-editor-line img line ulhcx (+ ulhcy dy) 0 0.5 255 255 255 1)
+            (loop (cdr lst) (+ y 1))))))
+))
 
 (When ((,this has-region (,?ulhc ,?urhc ,?llhc ,?lrhc))
        (,this (page rotation) ,?rotation) ; clockwise rotation
@@ -55,14 +72,8 @@
       (transform in-pts 4 m out-pts) ; rotate to axis-aligned
       (let* ((aabb-pts (pts->coords out-pts 4))
              (aabb-ulhc (car aabb-pts))
-             (aabb-lrhc (caddr aabb-pts))
-             (aabb-ulhcx (inexact->exact (round (car aabb-ulhc)))) (aabb-ulhcy (inexact->exact (round (cdr aabb-ulhc))))
-             (aabb-lrhcx (inexact->exact (round (car aabb-lrhc)))) (aabb-lrhcy (inexact->exact (round (cdr aabb-lrhc)))))
-        (draw-rectangle img aabb-ulhcx aabb-ulhcy aabb-lrhcx aabb-lrhcy 0 0 255 -1)
-        (draw-rectangle mask aabb-ulhcx aabb-ulhcy aabb-lrhcx aabb-lrhcy 255 255 255 -1)
-        (draw-editor-line img (car lines) aabb-ulhcx (+ aabb-ulhcy height) 0 0.5 255 255 255 1)
-        (draw-editor-line img (cadr lines) aabb-ulhcx (+ aabb-ulhcy (* 2 height)) 0 0.5 255 255 255 1)
-        (draw-editor-line img (caddr lines) aabb-ulhcx (+ aabb-ulhcy (* 3 height)) 0 0.5 255 255 255 1)
+             (aabb-lrhc (caddr aabb-pts)))
+        (draw-editor-lines img mask lines aabb-ulhc aabb-lrhc height 0 0.5 255 255 255 1)
         (warp-affine img img minv 1280 720)    ; rotate back
         (warp-affine mask mask minv 1280 720)  ; rotate back
         (copy-from-to img projection mask)

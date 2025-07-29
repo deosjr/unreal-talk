@@ -84,7 +84,7 @@ func main() {
 	}
 
 	C.scm_init_guile()
-	C.scm_c_primitive_load(C.CString("test.scm"))
+	C.scm_c_primitive_load(C.CString("main.scm"))
 
 	webcam, _ := gocv.OpenVideoCapture(0)
 	defer webcam.Close()

@@ -1,5 +1,5 @@
 ; this script was made for a 9x9cm tag in the upper lefthand corner of an A4 paper
- 
+
 (When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (let* ((diagonal (vec-from-to ?lrhc ?ulhc))
            ; inner dimensions of 9x9 tag at 1cm per pixel: 5x5cm
@@ -31,12 +31,12 @@
       (draw-line projection brx bry blx bly 255 255 255 2)
       (draw-line projection blx bly tlx tly 255 255 255 2)
       (Claim-derived this this 'has-region (list (cons etlx etly) (cons etrx etry) (cons eblx ebly) (cons ebrx ebry)))))
- 
+
 ; x and y are lower left corner in aab. rotation is left to the caller.
 ; caller is also assumed to draw onto a poly-fill, ie mask includes text already.
 (define (draw-editor-line img str x y font scale r g b thickness)
-    (put-text img (string->pointer str) x y font scale r g b thickness)  ; draw color to 3-channel img)
- 
+    (put-text img (string->pointer str) x y font scale r g b thickness))  ; draw color to 3-channel img
+
 (When ((,this has-region (,?ulhc ,?urhc ,?llhc ,?lrhc))
        (,this (page rotation) ,?rotation) ; clockwise rotation
        (,this (page code) ,?str))
@@ -44,7 +44,7 @@
            (cx (inexact->exact (round (car center)))) (cy (inexact->exact (round (cdr center))))
            (textsize (text-size "gh" 0 0.5 1))
            (height (+ (cadr textsize) 8)) ; 8 padding pixels
-           (lines (string-tokenize ?str (char-set-complement (char-set #\newline))))
+           (lines (string-split ?str #\newline))
            ; m rotates back to axis-aligned with ulhc at upper left hand corner
            (m (rotation-matrix-2d cx cy ?rotation 1.0)) ; counter-clockwise rotation!
            (minv (rotation-matrix-2d cx cy (- ?rotation) 1.0))

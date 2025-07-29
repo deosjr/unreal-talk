@@ -26,6 +26,7 @@ At some point this might be simplified by only using Guile Scheme, but perhaps h
 
 ## Log
 
+* 29-07-2025: Rough first implementation of memories using Remember/Forget
 * 28-07-2025: Claim-derived as temporary fix for Claim-within-When bugs
 * 27-07-2025: Guile openCV bindings are getting painful to write, need better wrappers
 * 26-07-2025: Parallelizing tag parsing speeds things up dramatically

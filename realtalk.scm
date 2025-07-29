@@ -11,6 +11,13 @@
 ; --> When macro replaces Claim/Wish with DerivedClaim/DerivedWish?
 ; FIX for both (temporarily): Claim-derived
 
+; Remember/Forget can store state beyond a page's lifetime.
+; For now we will use an in-memory db so state is still scoped to RealTalkOS lifetime
+; https://dynamicland.org/archive/2020/Memories
+; "The remembered statements on an object are only there when the object itself is there and running"
+; Replacing is automatic but values are unique per key, for now
+; Page-local vars are still a thing too, they are just less reliable since detection isn't 100% stable
+
 (define *procs* (make-hash-table))
 (define *rule-procs* (make-hash-table))
 
@@ -59,9 +66,14 @@
   (let ((new-pages (get-new-pages))
         (removed-pages (get-removed-pages)))
     (for-each (lambda (id) (page-moved-onto-table id)) new-pages)
-    (for-each (lambda (id) (page-moved-from-table id)) removed-pages))
+    (for-each (lambda (id) (page-moved-from-table id)) removed-pages)
+    (for-each (lambda (id) (forget-all id)) removed-pages))
+  (retract-memories)
+  (let ((pageids (hashtable-keys *pages-in-scene*)))
+    (for-each (lambda (id) (assert-memories id)) pageids))
   (set! *pages-in-scene-prev* *pages-in-scene*)
   (set! *pages-in-scene* (make-hash-table))
+  (set! *forget* '())
   (assert-key key)
   (assert-time)
   (dl-fixpoint! (get-dl)))
@@ -242,3 +254,40 @@
 (define (execute-page pid)
   (let ((proc (hash-ref *procs* pid #f)))
     (if proc (proc pid))))
+
+(define *memories* (make-hash-table))
+(define *forget* '()) ; stages memories to forget; cleaned up each iteration
+
+(define (Remember on id key value)
+  (hash-set! *memories* (list on id key) value))
+
+(define (Forget on id key)
+  (let* ((memkey (list on id key))
+         (value (hash-ref *memories* memkey))
+         (dbkey (list id key value)))
+  (set! *forget* (cons dbkey *forget*))
+  (hash-remove! *memories* memkey)))
+
+(define (memories-on on)
+  (filter (lambda (mem) (eq? (car mem) on)) (hashtable-keys *memories*)))
+
+(define (forget-all on)
+  (let ((to-forget (map (lambda (mem)
+    (let ((id (cadr mem))
+          (key (caddr mem))
+          (value (hash-ref *memories* mem #f)))
+      (list id key value))) (memories-on on))))
+  (set! *forget* (append *forget* to-forget))))
+
+(define (assert-memories pid)
+  (let ((memories (memories-on pid)))
+    (for-each (lambda (mem)
+      (let ((id (cadr mem))
+            (key (caddr mem))
+            (value (hash-ref *memories* mem #f)))
+        (dl-assert! (get-dl) id key value)))
+      memories)))
+
+(define (retract-memories)
+  (for-each (lambda (dbkey)
+    (dl-retract! (get-dl) dbkey)) *forget*))

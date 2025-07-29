@@ -5,6 +5,10 @@
              (ice-9 eval-string)
              (ice-9 textual-ports))
 
+(define font-path "/System/Library/Fonts/Menlo.ttc")
+(define ft (create-freetype (string->pointer font-path)))
+;(destroy-freetype ft)
+
 (define (vec-add p q)
   (let ((px (car p)) (py (cdr p))
         (qx (car q)) (qy (cdr q)))

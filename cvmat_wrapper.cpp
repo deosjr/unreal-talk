@@ -1,6 +1,7 @@
 // cvmat_wrapper.cpp
-#include <opencv2/opencv.hpp>
 #include <string>
+#include <opencv2/opencv.hpp>
+#include <opencv2/freetype.hpp>
 
 extern "C" {
 
@@ -55,6 +56,41 @@ void getTextSize(const char* text, int fontFace, double fontScale, int thickness
 
 void putText(Image* img, const char* text, int x, int y, int fontFace, double fontScale, int r, int g, int b, int thickness) {
     cv::putText(img->mat, text, cv::Point(x, y), fontFace, fontScale, cv::Scalar(b, g, r), thickness, cv::LINE_8, false);
+}
+
+void* create_freetype(const char* font_path) {
+    try {
+        auto ft2 = cv::freetype::createFreeType2();
+        ft2->loadFontData(font_path, 0);
+        return static_cast<void*>(new cv::Ptr<cv::freetype::FreeType2>(ft2));
+    } catch (...) {
+        return nullptr;
+    }
+}
+
+void destroy_freetype(void* ft_ptr) {
+    if (ft_ptr) {
+        delete static_cast<cv::Ptr<cv::freetype::FreeType2>*>(ft_ptr);
+    }
+}
+
+void freetype_get_text_size(void* ft_ptr, const char* text, int font_height, TextFormat* out) {
+    if (!ft_ptr || !text || !out) return;
+
+    auto ft = *(static_cast<cv::Ptr<cv::freetype::FreeType2>*>(ft_ptr));
+    int baseline = 0;
+    cv::Size size = ft->getTextSize(text, font_height, -1, &baseline);
+    *out = TextFormat{size.width, size.height, baseline};
+}
+
+void freetype_put_text(void* ft_ptr, Image* img, const char* text, int x, int y, int font_height, int r, int g, int b) {
+    if (!ft_ptr || !img || !text) return;
+
+    auto ft = *(static_cast<cv::Ptr<cv::freetype::FreeType2>*>(ft_ptr));
+    cv::Scalar color(b, g, r);
+    // note: thickness -1 fills the characters fully
+    // note: ofc, freetype reverses the semantics of bottomLeftOrigin boolean...
+    ft->putText(img->mat, text, cv::Point(x, y), font_height, color, -1, cv::LINE_AA, true);
 }
 
 void line(Image* img, int x0, int y0, int x1, int y1, int r, int g, int b, int thickness) {

@@ -65,10 +65,10 @@
 
 ; x and y are lower left corner in aab. rotation is left to the caller.
 ; caller is also assumed to draw onto a poly-fill, ie mask includes text already.
-(define (draw-editor-line img str x y font scale r g b thickness)
-    (put-text img (string->pointer str) x y font scale r g b thickness))  ; draw color to 3-channel img
+(define (draw-editor-line img str x y height r g b)
+    (ft-put-text ft img (string->pointer str) x y height r g b))  ; draw color to 3-channel img
 
-(define (draw-editor-lines img mask lines ulhc lrhc char-width line-height font scale r g b thickness)
+(define (draw-editor-lines img mask lines ulhc lrhc char-width line-height font-height r g b)
   (let* ((ulhcx (coord->int (car ulhc))) (ulhcy (coord->int (cdr ulhc)))
          (lrhcx (coord->int (car lrhc))) (lrhcy (coord->int (cdr lrhc)))
          (line-y (+ ulhcy (* line-height (- line-num 1))))
@@ -82,7 +82,7 @@
       (let ((dy (* y line-height)))
         (if (and (< dy ytotal) (not (null? lst)))
           (let ((line (car lst)))
-            (draw-editor-line img line ulhcx (+ ulhcy dy) 0 0.5 255 255 255 1)
+            (draw-editor-line img line ulhcx (+ ulhcy dy) font-height 255 255 255)
             (loop (cdr lst) (+ y 1))))))
 ))
 
@@ -92,8 +92,9 @@
        (,?p (page code) ,?str))
  do (let* ((center (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5)))
            (cx (inexact->exact (round (car center)))) (cy (inexact->exact (round (cdr center))))
-           (textsize (text-size "gh" 0 0.5 1)) ;gh give upper/lower bounds for line
-           (charwidth (/ (car textsize) 2)) ; assumes mono!
+           (font-height 20)
+           (textsize (ft-text-size ft "gh" font-height)) ;gh give upper/lower bounds for line
+           (charwidth (/ (car textsize) 2)) ; assumes mono font!
            (height (+ (cadr textsize) 8)) ; 8 padding pixels
            (lines (string-split ?str #\newline))
            ; m rotates back to axis-aligned with ulhc at upper left hand corner
@@ -107,7 +108,7 @@
       (let* ((aabb-pts (pts->coords out-pts 4))
              (aabb-ulhc (car aabb-pts))
              (aabb-lrhc (caddr aabb-pts)))
-        (draw-editor-lines img mask lines aabb-ulhc aabb-lrhc charwidth height 0 0.5 255 255 255 1)
+        (draw-editor-lines img mask lines aabb-ulhc aabb-lrhc charwidth height font-height 255 255 255)
         (warp-affine img img minv 1280 720)    ; rotate back
         (warp-affine mask mask minv 1280 720)  ; rotate back
         (copy-from-to img projection mask)

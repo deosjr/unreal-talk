@@ -43,6 +43,26 @@
                             #:arg-types (list '* '* int int int double int int int int)
                             #:return-type void))
 
+(define create-freetype
+  (foreign-library-function lib "create_freetype"
+                            #:arg-types (list '*)
+                            #:return-type '*))
+
+(define destroy-freetype
+  (foreign-library-function lib "destroy_freetype"
+                            #:arg-types (list '*)
+                            #:return-type void))
+
+(define ft-get-text-size
+  (foreign-library-function lib "freetype_get_text_size"
+                            #:arg-types (list '* '* int '*)
+                            #:return-type void))
+
+(define ft-put-text
+  (foreign-library-function lib "freetype_put_text"
+                            #:arg-types (list '* '* '* int int int int int int)
+                            #:return-type void))
+
 (define draw-line
   (foreign-library-function lib "line"
                             #:arg-types (list '* int int int int int int int int)
@@ -124,6 +144,12 @@
   (let ((buf (bytevector->pointer (make-bytevector (* 3 (sizeof int)))))
          (cstr (string->pointer str)))
     (get-text-size cstr font scale thickness buf)
+    (parse-c-struct buf (list int int int))))
+
+(define (ft-text-size ft str height)
+  (let ((buf (bytevector->pointer (make-bytevector (* 3 (sizeof int)))))
+         (cstr (string->pointer str)))
+    (ft-get-text-size ft cstr height buf)
     (parse-c-struct buf (list int int int))))
 
 (define (points->bytevector . points)

@@ -31,5 +31,6 @@
 ; todo: load when first seeing a tag?
 (load-page 1)
 (load-page 4)
+(load-page 7)
 (load-page 11)
 (load-page 12)

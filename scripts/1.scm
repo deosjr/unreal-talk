@@ -94,7 +94,7 @@
            (cx (inexact->exact (round (car center)))) (cy (inexact->exact (round (cdr center))))
            (font-height 20)
            (textsize (ft-text-size ft "gh" font-height)) ;gh give upper/lower bounds for line
-           (charwidth (/ (car textsize) 2)) ; assumes mono font!
+           (charwidth (+ 1 (/ (car textsize) 2))) ; assumes mono font! also, off-by-one??
            (height (+ (cadr textsize) 8)) ; 8 padding pixels
            (lines (string-split ?str #\newline))
            ; m rotates back to axis-aligned with ulhc at upper left hand corner

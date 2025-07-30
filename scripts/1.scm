@@ -4,11 +4,17 @@
 
 (define line-num 1)
 (define cursor-x 0)
+(define pageid -1)
+(define code-under-edit '())
 
 (When ((,this line-num ,?line-num)) ; from Remember
  do (set! line-num ?line-num))
 (When ((,this cursor-x ,?x))
  do (set! cursor-x ?x))
+(When ((,this pageid ,?id))
+ do (set! pageid ?id))
+(When ((,this code-under-edit ,?code))
+ do (set! code-under-edit ?code))
 
 ; todo: Remember current script size, don't go out of bounds
 (When ((key down 106)) ; j
@@ -64,7 +70,7 @@
 (define (draw-editor-line img str x y height r g b)
     (ft-put-text ft img (string->pointer str) x y height r g b))  ; draw color to 3-channel img
 
-(define (draw-editor-lines img mask lines ulhc lrhc char-width line-height font-height r g b)
+(define (draw-editor-lines img mask ulhc lrhc char-width line-height font-height r g b)
   (let* ((ulhcx (car ulhc)) (ulhcy (cdr ulhc))
          (lrhcx (car lrhc)) (lrhcy (cdr lrhc))
          (line-y (+ ulhcy (* line-height (- line-num 1))))
@@ -74,24 +80,33 @@
     (draw-rectangle img ulhcx line-y lrhcx (+ line-y line-height) 100 100 255 -1)
     (draw-rectangle img cx line-y (+ cx char-width) (+ line-y line-height) 150 150 255 -1)
     (draw-rectangle mask ulhcx ulhcy lrhcx lrhcy 255 255 255 -1)
-    (let loop ((lst lines) (y 1))
+    (let loop ((lst code-under-edit) (y 1))
       (let ((dy (* y line-height)))
         (if (and (< dy ytotal) (not (null? lst)))
           (let ((line (car lst)))
             (draw-editor-line img line ulhcx (+ ulhcy dy) font-height 255 255 255)
             (loop (cdr lst) (+ y 1))))))))
 
+(When ((,this points-at ,?p)
+       (,?p (page code) ,?str))
+ do (Claim-derived this this 'editing ?p)
+    (if (not (= pageid ?p))
+      (let ((code (string-split ?str #\newline)))
+        (Remember this this 'pageid ?p)
+        (Remember this this 'line-num 1)
+        (Remember this this 'cursor-x 0)
+        (Remember this this 'code-under-edit code))))
+        
+
 (When ((,this has-region (,?ulhc ,?urhc ,?llhc ,?lrhc))
        (,this (page rotation) ,?rotation) ; clockwise rotation
-       (,this points-at ,?p)
-       (,?p (page code) ,?str))
+       (,this editing ,?p))
  do (let* ((center (vec->ints (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5))))
            (cx (car center)) (cy (cdr center))
            (font-height 20)
            (textsize (ft-text-size ft "gh" font-height)) ;gh give upper/lower bounds for line
            (charwidth (+ 1 (/ (car textsize) 2))) ; assumes mono font! also, off-by-one??
            (height (+ (cadr textsize) 8)) ; 8 padding pixels
-           (lines (string-split ?str #\newline))
            ; m rotates back to axis-aligned with ulhc at upper left hand corner
            (m (rotation-matrix-2d cx cy ?rotation 1.0)) ; counter-clockwise rotation!
            (minv (rotation-matrix-2d cx cy (- ?rotation) 1.0))
@@ -103,7 +118,7 @@
       (let* ((aabb-pts (pts->coords out-pts 4))
              (aabb-ulhc (car aabb-pts))
              (aabb-lrhc (caddr aabb-pts)))
-        (draw-editor-lines img mask lines aabb-ulhc aabb-lrhc charwidth height font-height 255 255 255)
+        (draw-editor-lines img mask aabb-ulhc aabb-lrhc charwidth height font-height 255 255 255)
         (warp-affine img img minv 1280 720)    ; rotate back
         (warp-affine mask mask minv 1280 720)  ; rotate back
         (copy-from-to img projection mask)

@@ -246,6 +246,14 @@
     (dl-assert! (get-dl) id '(page code) str)
     (hash-set! *procs* id proc)))
 
+(define (save-page id code-str)
+  (let ((proc (eval-string (format #f "(make-page-code ~a)" code-str))))
+    ; todo: remove previous page code str from db!
+    (dl-assert! (get-dl) id '(page code) code-str)
+    (hash-set! *procs* id proc)
+    (page-moved-from-table id)
+    (page-moved-onto-table id)))
+
 ; todo: once a background page is physically present on the table,
 ; it unloads once gone and takes all its effects with it :)
 (define (load-background-page id)

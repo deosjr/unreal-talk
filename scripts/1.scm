@@ -16,9 +16,9 @@
 (When ((,this code-under-edit ,?code))
  do (set! code-under-edit ?code))
 
-; todo: Remember current script size, don't go out of bounds
 (When ((key down 106)) ; j
- do (Remember this this 'line-num (+ line-num 1)))
+ do (if (< line-num (- (length code-under-edit) 1))
+      (Remember this this 'line-num (+ line-num 1))))
 
 (When ((key down 107)) ; k
  do (if (> line-num 0)
@@ -31,7 +31,34 @@
         (Remember this this 'cursor-x newx))))
 
 (When ((key down 108)) ; l
- do (Remember this this 'cursor-x (+ cursor-x 1)))
+ do (if (< cursor-x (- (string-length (list-ref code-under-edit line-num)) 1))
+      (Remember this this 'cursor-x (+ cursor-x 1))))
+
+(When ((key down 120)) ; x
+ do (delete-under-cursor))
+
+(When ((key down 100)) ; d
+ do (delete-line))
+
+(When ((key down 115)) ; s
+ do (save-page pageid (string-join code-under-edit "\n")))
+
+(define (delete-under-cursor)
+  (let* ((code-len (length code-under-edit))
+         (line (list-ref code-under-edit line-num))
+         (line-len (string-length line)))
+  (if (< cursor-x (- line-len 1))
+    (let* ((left (substring line 0 cursor-x))
+           (right (substring line (+ cursor-x 1) line-len))
+           (new-line (string-append left right)))
+      (list-set! code-under-edit line-num new-line)
+      (Remember this this 'code-under-edit code-under-edit)))))
+
+(define (delete-line)
+  (if (= line-num 0)
+    (set! code-under-edit (cdr code-under-edit))
+    (list-cdr-set! code-under-edit (- line-num 1) (list-tail code-under-edit (+ line-num 1))))
+  (Remember this this 'code-under-edit code-under-edit))
 
 (When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (let* ((diagonal (vec-from-to ?lrhc ?ulhc))

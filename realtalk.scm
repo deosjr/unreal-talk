@@ -15,7 +15,7 @@
 ; For now we will use an in-memory db so state is still scoped to RealTalkOS lifetime
 ; https://dynamicland.org/archive/2020/Memories
 ; "The remembered statements on an object are only there when the object itself is there and running"
-; Values are unique per key, for now. Replacing still needs a Forget/Remember combo (?)
+; Values are unique per key, for now. Replacing is automatic.
 ; Page-local vars are still a thing too, they are just less reliable since detection isn't 100% stable
 
 (define *procs* (make-hash-table))
@@ -261,6 +261,7 @@
 (define *forget* '()) ; stages memories to forget; cleaned up each iteration
 
 (define (Remember on id key value)
+  (Forget on id key) ; always replace
   (hash-set! *memories* (list on id key) value))
 
 (define (Forget on id key)

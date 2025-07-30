@@ -12,24 +12,20 @@
 
 ; todo: Remember current script size, don't go out of bounds
 (When ((key down 106)) ; j
- do (Forget this this 'line-num)
-    (Remember this this 'line-num (+ line-num 1)))
+ do (Remember this this 'line-num (+ line-num 1)))
 
 (When ((key down 107)) ; k
  do (if (> line-num 1)
       (let ((new-num (- line-num 1)))
-        (Forget this this 'line-num)
         (Remember this this 'line-num new-num))))
 
 (When ((key down 104)) ; h
  do (if (> cursor-x 0)
       (let ((newx (- cursor-x 1)))
-        (Forget this this 'cursor-x)
         (Remember this this 'cursor-x newx))))
 
 (When ((key down 108)) ; l
- do (Forget this this 'cursor-x)
-    (Remember this this 'cursor-x (+ cursor-x 1)))
+ do (Remember this this 'cursor-x (+ cursor-x 1)))
 
 (When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (let* ((diagonal (vec-from-to ?lrhc ?ulhc))
@@ -83,8 +79,7 @@
         (if (and (< dy ytotal) (not (null? lst)))
           (let ((line (car lst)))
             (draw-editor-line img line ulhcx (+ ulhcy dy) font-height 255 255 255)
-            (loop (cdr lst) (+ y 1))))))
-))
+            (loop (cdr lst) (+ y 1))))))))
 
 (When ((,this has-region (,?ulhc ,?urhc ,?llhc ,?lrhc))
        (,this (page rotation) ,?rotation) ; clockwise rotation

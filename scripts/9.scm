@@ -4,5 +4,8 @@
       (case ?color
         ((red) (set! r 255))
         ((blue) (set! b 255))
-        ((green) (set! g 255)))
+        ((green) (set! g 255))
+        (else (set! r (car   ?color)) ; assume color is (r g b) list
+              (set! g (cadr  ?color))
+              (set! b (caddr ?color))))
       (draw-on-page ?ulhc ?urhc ?lrhc ?llhc r g b)))

@@ -32,27 +32,27 @@
            ; inner dimensions of 9x9 tag at 1cm per pixel: 5x5cm
            ; diagonal is sqrt(50) and to page topleft is sqrt(32)
            ; roughly 7.07 : 5.66
-           (topleft (vec-add ?ulhc (vec-mul diagonal (/ 5.66 7.07))))
+           (topleft (vec->ints (vec-add ?ulhc (vec-mul diagonal (/ 5.66 7.07)))))
            ; a4 in cm: 21 x 29.7
            (inner-right-vec (vec-mul (vec-from-to ?ulhc ?urhc) 0.2)) ; normalized to be 1cm/1px long
            (inner-down-vec (vec-mul (vec-from-to ?ulhc ?llhc) 0.2)) ; normalized to be 1cm/1px long
            (rightvec (vec-mul inner-right-vec 21))
            (downvec (vec-mul inner-down-vec 29.7))
-           (topright (vec-add topleft rightvec))
-           (bottomleft (vec-add topleft downvec))
-           (bottomright (vec-add bottomleft rightvec))
-           (tlx (coord->int (car topleft))) (tly (coord->int (cdr topleft)))
-           (trx (coord->int (car topright))) (try (coord->int (cdr topright)))
-           (blx (coord->int (car bottomleft))) (bly (coord->int (cdr bottomleft)))
-           (brx (coord->int (car bottomright))) (bry (coord->int (cdr bottomright)))
-           (editorulhc (vec-add (vec-add ?llhc (vec-mul inner-right-vec (- 2 ))) (vec-mul inner-down-vec 3)))
-           (editorurhc (vec-add editorulhc (vec-mul inner-right-vec 17)))
-           (editorlrhc (vec-add editorurhc (vec-mul inner-down-vec 16)))
-           (editorllhc (vec-add editorulhc (vec-mul inner-down-vec 16)))
-           (etlx (coord->int (car editorulhc))) (etly (coord->int (cdr editorulhc)))
-           (etrx (coord->int (car editorurhc))) (etry (coord->int (cdr editorurhc)))
-           (eblx (coord->int (car editorllhc))) (ebly (coord->int (cdr editorllhc)))
-           (ebrx (coord->int (car editorlrhc))) (ebry (coord->int (cdr editorlrhc))))
+           (topright (vec->ints (vec-add topleft rightvec)))
+           (bottomleft (vec->ints (vec-add topleft downvec)))
+           (bottomright (vec->ints (vec-add bottomleft rightvec)))
+           (tlx (car topleft)) (tly (cdr topleft))
+           (trx (car topright)) (try (cdr topright))
+           (blx (car bottomleft)) (bly (cdr bottomleft))
+           (brx (car bottomright)) (bry (cdr bottomright))
+           (editorulhc (vec->ints (vec-add (vec-add ?llhc (vec-mul inner-right-vec (- 2 ))) (vec-mul inner-down-vec 3))))
+           (editorurhc (vec->ints (vec-add editorulhc (vec-mul inner-right-vec 17))))
+           (editorlrhc (vec->ints (vec-add editorurhc (vec-mul inner-down-vec 16))))
+           (editorllhc (vec->ints (vec-add editorulhc (vec-mul inner-down-vec 16))))
+           (etlx (car editorulhc)) (etly (cdr editorulhc))
+           (etrx (car editorurhc)) (etry (cdr editorurhc))
+           (eblx (car editorllhc)) (ebly (cdr editorllhc))
+           (ebrx (car editorlrhc)) (ebry (cdr editorlrhc)))
       (draw-line projection tlx tly trx try 255 255 255 2)
       (draw-line projection trx try brx bry 255 255 255 2)
       (draw-line projection brx bry blx bly 255 255 255 2)
@@ -65,8 +65,8 @@
     (ft-put-text ft img (string->pointer str) x y height r g b))  ; draw color to 3-channel img
 
 (define (draw-editor-lines img mask lines ulhc lrhc char-width line-height font-height r g b)
-  (let* ((ulhcx (coord->int (car ulhc))) (ulhcy (coord->int (cdr ulhc)))
-         (lrhcx (coord->int (car lrhc))) (lrhcy (coord->int (cdr lrhc)))
+  (let* ((ulhcx (car ulhc)) (ulhcy (cdr ulhc))
+         (lrhcx (car lrhc)) (lrhcy (cdr lrhc))
          (line-y (+ ulhcy (* line-height (- line-num 1))))
          (cx (+ ulhcx (* char-width cursor-x)))
          (ytotal (- lrhcy ulhcy)))
@@ -85,8 +85,8 @@
        (,this (page rotation) ,?rotation) ; clockwise rotation
        (,this points-at ,?p)
        (,?p (page code) ,?str))
- do (let* ((center (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5)))
-           (cx (inexact->exact (round (car center)))) (cy (inexact->exact (round (cdr center))))
+ do (let* ((center (vec->ints (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5))))
+           (cx (car center)) (cy (cdr center))
            (font-height 20)
            (textsize (ft-text-size ft "gh" font-height)) ;gh give upper/lower bounds for line
            (charwidth (+ 1 (/ (car textsize) 2))) ; assumes mono font! also, off-by-one??

@@ -176,5 +176,8 @@
 (define (coord->int x)
   (inexact->exact (round x)))
 
+(define (vec->ints v)
+  (cons (coord->int (car v)) (coord->int (cdr v))))
+
 (define (draw-on-page ulhc urhc llhc lrhc r g b)
   (fill-poly projection (bytevector->pointer (points->bytevector ulhc urhc llhc lrhc)) 4 r g b))

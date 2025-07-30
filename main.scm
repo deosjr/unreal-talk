@@ -27,10 +27,12 @@
 
 (load-background-page 3) ; labeling
 (load-background-page 6) ; whiskers
+(load-background-page 9) ; highlight
 
 ; todo: load when first seeing a tag?
 (load-page 1)
 (load-page 4)
 (load-page 7)
+(load-page 8)
 (load-page 11)
 (load-page 12)

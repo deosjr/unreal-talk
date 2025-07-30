@@ -246,6 +246,8 @@
     (dl-assert! (get-dl) id '(page code) str)
     (hash-set! *procs* id proc)))
 
+; todo: once a background page is physically present on the table,
+; it unloads once gone and takes all its effects with it :)
 (define (load-background-page id)
   (load-page id)
   (page-moved-onto-table id)

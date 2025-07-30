@@ -2,7 +2,7 @@
 
 (Wish this 'has-whiskers #t)
 
-(define line-num 1)
+(define line-num 0)
 (define cursor-x 0)
 (define pageid -1)
 (define code-under-edit '())
@@ -21,7 +21,7 @@
  do (Remember this this 'line-num (+ line-num 1)))
 
 (When ((key down 107)) ; k
- do (if (> line-num 1)
+ do (if (> line-num 0)
       (let ((new-num (- line-num 1)))
         (Remember this this 'line-num new-num))))
 
@@ -73,7 +73,7 @@
 (define (draw-editor-lines img mask ulhc lrhc char-width line-height font-height r g b)
   (let* ((ulhcx (car ulhc)) (ulhcy (cdr ulhc))
          (lrhcx (car lrhc)) (lrhcy (cdr lrhc))
-         (line-y (+ ulhcy (* line-height (- line-num 1))))
+         (line-y (+ ulhcy (* line-height line-num)))
          (cx (+ ulhcx (* char-width cursor-x)))
          (ytotal (- lrhcy ulhcy)))
     (draw-rectangle img ulhcx ulhcy lrhcx lrhcy 0 0 255 -1)
@@ -93,7 +93,7 @@
     (if (not (= pageid ?p))
       (let ((code (string-split ?str #\newline)))
         (Remember this this 'pageid ?p)
-        (Remember this this 'line-num 1)
+        (Remember this this 'line-num 0)
         (Remember this this 'cursor-x 0)
         (Remember this this 'code-under-edit code))))
         

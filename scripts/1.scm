@@ -6,6 +6,7 @@
 (define cursor-x 0)
 (define pageid -1)
 (define code-under-edit '())
+(define font-height 10)
 
 (When ((,this line-num ,?line-num)) ; from Remember
  do (set! line-num ?line-num))
@@ -97,7 +98,7 @@
 (define (draw-editor-line img str x y height r g b)
     (ft-put-text ft img (string->pointer str) x y height r g b))  ; draw color to 3-channel img
 
-(define (draw-editor-lines img mask ulhc lrhc char-width line-height font-height r g b)
+(define (draw-editor-lines img mask ulhc lrhc char-width line-height r g b)
   (let* ((ulhcx (car ulhc)) (ulhcy (cdr ulhc))
          (lrhcx (car lrhc)) (lrhcy (cdr lrhc))
          (line-y (+ ulhcy (* line-height line-num)))
@@ -130,9 +131,9 @@
        (,this editing ,?p))
  do (let* ((center (vec->ints (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5))))
            (cx (car center)) (cy (cdr center))
-           (font-height 20)
            (textsize (ft-text-size ft "gh" font-height)) ;gh give upper/lower bounds for line
-           (charwidth (+ 1 (/ (car textsize) 2))) ; assumes mono font! also, off-by-one??
+           ;(charwidth (+ 1 (inexact->exact (round (/ (car textsize) 2))))) ; assumes mono font! also, off-by-one??
+           (charwidth (inexact->exact (round (/ (car textsize) 2)))) ; assumes mono font! also, off-by-one??
            (height (+ (cadr textsize) 8)) ; 8 padding pixels
            ; m rotates back to axis-aligned with ulhc at upper left hand corner
            (m (rotation-matrix-2d cx cy ?rotation 1.0)) ; counter-clockwise rotation!
@@ -145,7 +146,7 @@
       (let* ((aabb-pts (pts->coords out-pts 4))
              (aabb-ulhc (car aabb-pts))
              (aabb-lrhc (caddr aabb-pts)))
-        (draw-editor-lines img mask aabb-ulhc aabb-lrhc charwidth height font-height 255 255 255)
+        (draw-editor-lines img mask aabb-ulhc aabb-lrhc charwidth height 255 255 255)
         (warp-affine img img minv 1280 720)    ; rotate back
         (warp-affine mask mask minv 1280 720)  ; rotate back
         (copy-from-to img projection mask)

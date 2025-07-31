@@ -122,9 +122,9 @@ func main() {
 	}
 
 	data := []float64{
-1.5626909790179035, 0.2923239218701374, -778.9278456154266,
--0.045228513064901985, 1.8051099287365797, -841.6234080639931,
--5.811338374006128e-05, 0.0003843737655502994, 1,
+1.3883089177554742, 0.08500871618335931, -744.1644416307363,
+-0.022095358148125955, 1.408334851255064, -215.54421787624605,
+1.1986272425640062e-05, 8.685501637361924e-05, 1,
     	}
 	
     	homography := gocv.NewMatWithSize(3, 3, gocv.MatTypeCV64F)
@@ -239,6 +239,7 @@ func parseDetection(img gocv.Mat, x, y int, homography gocv.Mat, d C.Detection) 
 		image.Pt(int(d.corners[3][0]), int(d.corners[3][1])),
 	}
 	// todo: this shows when capturing webcam appearance, but is debug only info!
+	// solution: copy img to debug mat and draw that on debug window?
 	gocv.Circle(&img, center, 5, color.RGBA{0, 255, 0, 0}, 2)
 	gocv.PutText(&img, fmt.Sprintf("ID %d", d.id), center, gocv.FontHersheyPlain, 1.2, color.RGBA{255, 0, 0, 0}, 2)
 	// point order seems to be: LLHC, LRHC, URHC, ULHC, stable through rotation (!)

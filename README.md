@@ -26,6 +26,7 @@ At some point this might be simplified by only using Guile Scheme, but perhaps h
 
 ## Log
 
+* 31-07-2025: datalog inefficiency starts to hurt; multiple rules get slow quite fast
 * 30-07-2025: First live-edit demo is now working
 * 30-07-2025: Using Logitech software to manually set webcam config is a drastic improvement
 * 29-07-2025: Rough first implementation of memories using Remember/Forget

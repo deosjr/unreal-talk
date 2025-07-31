@@ -17,32 +17,34 @@
 (When ((,this code-under-edit ,?code))
  do (set! code-under-edit ?code))
 
-(When ((key down 106)) ; j
- do (if (< line-num (- (length code-under-edit) 1))
-      (Remember this this 'line-num (+ line-num 1))))
+(When ((key down ,?k))
+ do (case ?k
+  ((106) (move-cursor-down)) ; j
+  ((107) (move-cursor-up)) ; k
+  ((104) (move-cursor-left)) ; h
+  ((108) (move-cursor-right)) ; l
+  ((120) (delete-under-cursor)) ; x
+  ((100) (delete-current-line)) ; d
+  ((115) (save-page pageid (string-join code-under-edit "\n"))) ; s
+))
 
-(When ((key down 107)) ; k
- do (if (> line-num 0)
-      (let ((new-num (- line-num 1)))
-        (Remember this this 'line-num new-num))))
+(define (move-cursor-down)
+  (if (< line-num (- (length code-under-edit) 1))
+    (Remember this this 'line-num (+ line-num 1))))
 
-(When ((key down 104)) ; h
- do (if (> cursor-x 0)
-      (let ((newx (- cursor-x 1)))
-        (Remember this this 'cursor-x newx))))
+(define (move-cursor-up)
+  (if (> line-num 0)
+    (let ((new-num (- line-num 1)))
+      (Remember this this 'line-num new-num))))
 
-(When ((key down 108)) ; l
- do (if (< cursor-x (- (string-length (list-ref code-under-edit line-num)) 1))
-      (Remember this this 'cursor-x (+ cursor-x 1))))
+(define (move-cursor-left)
+  (if (> cursor-x 0)
+    (let ((newx (- cursor-x 1)))
+      (Remember this this 'cursor-x newx))))
 
-(When ((key down 120)) ; x
- do (delete-under-cursor))
-
-(When ((key down 100)) ; d
- do (delete-line))
-
-(When ((key down 115)) ; s
- do (save-page pageid (string-join code-under-edit "\n")))
+(define (move-cursor-right)
+  (if (< cursor-x (- (string-length (list-ref code-under-edit line-num)) 1))
+    (Remember this this 'cursor-x (+ cursor-x 1))))
 
 (define (delete-under-cursor)
   (let* ((code-len (length code-under-edit))
@@ -55,7 +57,7 @@
       (list-set! code-under-edit line-num new-line)
       (Remember this this 'code-under-edit code-under-edit)))))
 
-(define (delete-line)
+(define (delete-current-line)
   (if (= line-num 0)
     (set! code-under-edit (cdr code-under-edit))
     (list-cdr-set! code-under-edit (- line-num 1) (list-tail code-under-edit (+ line-num 1))))

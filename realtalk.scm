@@ -48,15 +48,23 @@
   (hash-set! *pages-in-scene* id #t))
 
 (define (get-new-pages)
-  (filter (lambda (id) (not (hash-ref *pages-in-scene-prev* id #f)) )
+  (filter (lambda (id) (not (hash-ref *pages-in-scene-prev* id #f)))
     (hashtable-keys *pages-in-scene*)))
 
 (define (get-removed-pages)
-  (filter (lambda (id) (not (hash-ref *pages-in-scene* id #f)) )
+  (filter (lambda (id) (not (hash-ref *pages-in-scene* id #f)))
+    (hashtable-keys *pages-in-scene-prev*)))
+
+(define (get-stable-pages)
+  (filter (lambda (id) (hash-ref *pages-in-scene* id #f))
     (hashtable-keys *pages-in-scene-prev*)))
 
 (define (receive-key-down key)
   (assert-key key))
+(define (receive-time-detect d)
+  (assert-time-detect d))
+(define (receive-time-scm d)
+  (assert-time-scm d))
 
 (define (receive-pages-found pages)
   (fill-image projection 0 0 0) ;; fill black
@@ -66,17 +74,15 @@
           (rotation (caddr page)))
       (update-global-page-registry id)
       (update-page-geometry id points rotation))) pages)
-  (let ((new-pages (get-new-pages))
-        (removed-pages (get-removed-pages)))
-    (for-each (lambda (id) (page-moved-onto-table id)) new-pages)
-    (for-each (lambda (id) (page-moved-from-table id)) removed-pages)
-    (for-each (lambda (id) (forget-all id)) removed-pages))
-  (retract-memories)
-  (let ((pageids (hashtable-keys *pages-in-scene*)))
-    (for-each (lambda (id) (assert-memories id)) pageids))
+  (for-each (lambda (id) (begin
+       (page-moved-from-table id)
+       (forget-all id))) (get-removed-pages))
+  (for-each (lambda (id) (begin
+       (page-moved-onto-table id)
+       (remember-all id))) (get-new-pages))
+  (update-memories)
   (set! *pages-in-scene-prev* *pages-in-scene*)
   (set! *pages-in-scene* (make-hash-table))
-  (set! *forget* '())
   (assert-time)
   (dl-fixpoint! (get-dl)))
 
@@ -232,6 +238,16 @@
     (for-each (lambda (claim) (dl-retract! dl `(time now ,claim))) claims))
   (dl-assert! dl 'time 'now (gettimeofday)))
 
+(define (assert-time-detect d)
+  (let (( claims (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (time detect ,x) )))))))
+    (for-each (lambda (claim) (dl-retract! dl `(time detect ,claim))) claims))
+  (dl-assert! dl 'time 'detect d))
+
+(define (assert-time-scm d)
+  (let (( claims (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (time scm ,x) )))))))
+    (for-each (lambda (claim) (dl-retract! dl `(time scm ,claim))) claims))
+  (dl-assert! dl 'time 'scm d))
+
 ; if key == -1 then no key was pressed
 (define (assert-key key)
   (let (( claims (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (key down ,x) )))))))
@@ -269,10 +285,11 @@
 
 (define *memories* (make-hash-table))
 (define *forget* '()) ; stages memories to forget; cleaned up each iteration
+(define *remember* (make-hash-table)) ; stages memories to remember
 
 (define (Remember on id key value)
   (Forget on id key) ; always replace
-  (hash-set! *memories* (list on id key) value))
+  (hash-set! *remember* (list on id key) value))
 
 (define (Forget on id key)
   (let* ((memkey (list on id key))
@@ -292,15 +309,26 @@
       (list id key value))) (memories-on on))))
   (set! *forget* (append *forget* to-forget))))
 
-(define (assert-memories pid)
-  (let ((memories (memories-on pid)))
+(define (remember-all on)
+  (let ((memories (memories-on on)))
     (for-each (lambda (mem)
       (let ((id (cadr mem))
             (key (caddr mem))
             (value (hash-ref *memories* mem #f)))
-        (dl-assert! (get-dl) id key value)))
+        (hash-set! *remember* (list on id key) value)))
       memories)))
 
-(define (retract-memories)
+(define (update-memories)
   (for-each (lambda (dbkey)
-    (dl-retract! (get-dl) dbkey)) *forget*))
+    (dl-retract! (get-dl) dbkey)) *forget*)
+  (for-each (lambda (mem)
+    (let ((on (car mem))
+          (id (cadr mem))
+          (key (caddr mem))
+          (value (hash-ref *remember* mem #f)))
+      (if (hash-ref *pages-in-scene* on #f) (begin
+        (hash-set! *memories* mem value)
+        (dl-assert! (get-dl) id key value)))))
+      (hashtable-keys *remember*))
+  (set! *forget* '())
+  (set! *remember* (make-hash-table)))

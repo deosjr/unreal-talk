@@ -25,12 +25,6 @@ import (
 	"gocv.io/x/gocv"
 )
 
-type pageGeometry struct {
-	id int
-	ulhc, urhc, llhc, lrhc image.Point
-	rotation float64
-}
-
 func main() {
 
 	calib := flag.Bool("calibrate", false, "calibrate camera instead of running")
@@ -99,6 +93,9 @@ func main() {
 
 	detector := C.new_detector()
 	defer C.free_detector(detector)
+
+	var time_detect time.Duration
+	var time_scm time.Duration
 	
 Loop:
 	for {
@@ -109,11 +106,13 @@ Loop:
 		for {
 			select {
 			case pgs := <-ch:
-				time_detect := time.Now().Sub(start)
+				time_detect = time.Now().Sub(start)
 				start = time.Now()
+				scm_sendTimeDetect(time_detect.Milliseconds())
+				scm_sendTimeSCM(time_scm.Milliseconds())
 				scm_sendKeyDown(keyDown)
 				scm_sendPageGeometries(pgs)
-				time_scm := time.Now().Sub(start)
+				time_scm = time.Now().Sub(start)
 				tagids := []int{}
 				for _, tag := range pgs {
 					tagids = append(tagids, tag.id)
@@ -136,6 +135,12 @@ Loop:
 			break // ESC to quit
 		}
 	}
+}
+
+type pageGeometry struct {
+	id int
+	ulhc, urhc, llhc, lrhc image.Point
+	rotation float64
 }
 
 // runs in a goroutine because keyboard event listener has to run in main thread

@@ -31,6 +31,20 @@ func scm_sendKeyDown(key int) {
 	C.scm_call_1(f, C.scm_from_int(C.int(key)))
 }
 
+func scm_sendTimeDetect(d int64) {
+	fname := C.CString("receive-time-detect")
+	defer C.free(unsafe.Pointer(fname))
+	f := C.scm_variable_ref(C.scm_c_lookup(fname))
+	C.scm_call_1(f, C.scm_from_int(C.int(d)))
+}
+
+func scm_sendTimeSCM(d int64) {
+	fname := C.CString("receive-time-scm")
+	defer C.free(unsafe.Pointer(fname))
+	f := C.scm_variable_ref(C.scm_c_lookup(fname))
+	C.scm_call_1(f, C.scm_from_int(C.int(d)))
+}
+
 // this function triggers dl-fixpoint!
 func scm_sendPageGeometries(geos []pageGeometry) {
 	fname := C.CString("receive-pages-found")

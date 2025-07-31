@@ -55,7 +55,10 @@
   (filter (lambda (id) (not (hash-ref *pages-in-scene* id #f)) )
     (hashtable-keys *pages-in-scene-prev*)))
 
-(define (pages-found pages key)
+(define (receive-key-down key)
+  (assert-key key))
+
+(define (receive-pages-found pages)
   (fill-image projection 0 0 0) ;; fill black
   (for-each (lambda (page)
     (let ((id (car page))
@@ -74,7 +77,6 @@
   (set! *pages-in-scene-prev* *pages-in-scene*)
   (set! *pages-in-scene* (make-hash-table))
   (set! *forget* '())
-  (assert-key key)
   (assert-time)
   (dl-fixpoint! (get-dl)))
 

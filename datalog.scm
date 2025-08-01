@@ -152,14 +152,6 @@
   (hash-remove! (datalog-rdb dl) rule))
 
 #| HELPER FUNCTIONS |#
-(define (list->set x)
-   (define list->set_ (lambda (a b)
-     (cond
-       [(null? a) b]
-       [(member? b (car a)) (list->set_ (cdr a) b)]
-       [else (list->set_ (cdr a) (cons (car a) b))])))
-   (list->set_ x '()))
-
 (define (foldl f l acc)
    (if (null? l) acc
      (foldl f (cdr l) (f (car l) acc))))
@@ -190,21 +182,16 @@
        [(equalo a x)]
        [(membero x d)])))
 
-(define (member? l x)
-   (cond
-     [(null? l) #f]
-     [(eqv? (car l) x) #t]
-     [else (member? (cdr l) x)]))
-
 (define (set-extend! m keys)
-   (if (null? keys) m (begin (hash-set! m (car keys) #t) (set-extend! m (cdr keys)))))
+  (for-each (lambda (key)
+    (hash-set! m key #t))
+  keys) m)
 
 (define (set-difference a b)
-   (define check_keys (lambda (k m)
-     (if (null? k) (make-hash-table) (let ((rec (check_keys (cdr k) m)))
-       (if (not (hash-ref m (car k) #f)) (hash-set! rec (car k) #t))
-       rec ))))
-   (check_keys (hashtable-keys a) b))
+  (let ((m (make-hash-table)))
+    (for-each (lambda (key)
+      (if (not (hash-ref b key #f)) (hash-set! m key #t)))
+    (hashtable-keys a)) m))
 
 (define (hashtable-keys ht)
   (hash-fold (lambda (k v acc) (cons k acc)) '() ht))

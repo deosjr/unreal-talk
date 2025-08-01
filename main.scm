@@ -25,10 +25,10 @@
 
 (define (vec-from-to p q) (vec-sub q p))
 
-(load-background-page 3)  ; labeling
-(load-background-page 6)  ; whiskers
-(load-background-page 9)  ; highlight
-(load-background-page 13) ; regions
+(load-background-page 9001)  ; labeling
+(load-background-page 9002)  ; whiskers
+(load-background-page 9003)  ; highlight
+(load-background-page 9004)  ; regions
 
 ; todo: load when first seeing a tag?
 (load-page 1)

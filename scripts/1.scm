@@ -90,37 +90,26 @@
     (move-cursor-right)
     (Remember this this 'code-under-edit code-under-edit)))
 
+(When ((,this points-at ,?p)
+       (,?p (page code) ,?str))
+ do (Claim-derived this this 'editing ?p)
+    (if (not (= pageid ?p))
+      (let ((code (string-split ?str #\newline)))
+        (Remember this this 'pageid ?p)
+        (Remember this this 'line-num 0)
+        (Remember this this 'cursor-x 0)
+        (Remember this this 'mode 'command)
+        (Remember this this 'code-under-edit code))))
+
+; inner dimensions of 9x9 tag at 1cm per pixel: 5x5cm. a4 in cm: 21 x 29.7
+; tag printed with 2cm margin top and left, editor with margin below tag
 (When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
- do (let* ((diagonal (vec-from-to ?lrhc ?ulhc))
-           ; inner dimensions of 9x9 tag at 1cm per pixel: 5x5cm
-           ; diagonal is sqrt(50) and to page topleft is sqrt(32)
-           ; roughly 7.07 : 5.66
-           (topleft (vec->ints (vec-add ?ulhc (vec-mul diagonal (/ 5.66 7.07)))))
-           ; a4 in cm: 21 x 29.7
-           (inner-right-vec (vec-mul (vec-from-to ?ulhc ?urhc) 0.2)) ; normalized to be 1cm/1px long
-           (inner-down-vec (vec-mul (vec-from-to ?ulhc ?llhc) 0.2)) ; normalized to be 1cm/1px long
-           (rightvec (vec-mul inner-right-vec 21))
-           (downvec (vec-mul inner-down-vec 29.7))
-           (topright (vec->ints (vec-add topleft rightvec)))
-           (bottomleft (vec->ints (vec-add topleft downvec)))
-           (bottomright (vec->ints (vec-add bottomleft rightvec)))
-           (tlx (car topleft)) (tly (cdr topleft))
-           (trx (car topright)) (try (cdr topright))
-           (blx (car bottomleft)) (bly (cdr bottomleft))
-           (brx (car bottomright)) (bry (cdr bottomright))
-           (editorulhc (vec->ints (vec-add (vec-add ?llhc (vec-mul inner-right-vec (- 2 ))) (vec-mul inner-down-vec 3))))
-           (editorurhc (vec->ints (vec-add editorulhc (vec-mul inner-right-vec 17))))
-           (editorlrhc (vec->ints (vec-add editorurhc (vec-mul inner-down-vec 16))))
-           (editorllhc (vec->ints (vec-add editorulhc (vec-mul inner-down-vec 16))))
-           (etlx (car editorulhc)) (etly (cdr editorulhc))
-           (etrx (car editorurhc)) (etry (cdr editorurhc))
-           (eblx (car editorllhc)) (ebly (cdr editorllhc))
-           (ebrx (car editorlrhc)) (ebry (cdr editorlrhc)))
-      (draw-line projection tlx tly trx try 255 255 255 2)
-      (draw-line projection trx try brx bry 255 255 255 2)
-      (draw-line projection brx bry blx bly 255 255 255 2)
-      (draw-line projection blx bly tlx tly 255 255 255 2)
-      (Claim-derived this this 'has-region (list (cons etlx etly) (cons etrx etry) (cons eblx ebly) (cons ebrx ebry)))))
+ do (let* ((margin (- (/ 4 5))) (dx (/ 17 5)) (dy (/ 25.7 5))
+           (emargin (- (/ 2 5))) (edy1 (/ 9 5)) (edy2 (/ 23.7 5)) (edx (/ 15 5)))
+      (Wish-derived this this 'has-region-from-tag 
+       `(outline ,margin ,margin ,dx ,margin ,margin ,dy ,dx ,dy))
+      (Wish-derived this this 'has-region-from-tag 
+       `(editor ,emargin ,edy1 ,edx ,edy1 ,emargin ,edy2 ,edx ,edy2))))
 
 ; x and y are lower left corner in aab. rotation is left to the caller.
 ; caller is also assumed to draw onto a poly-fill, ie mask includes text already.
@@ -144,18 +133,7 @@
             (draw-editor-line img line ulhcx (+ ulhcy dy) font-height 255 255 255)
             (loop (cdr lst) (+ y 1))))))))
 
-(When ((,this points-at ,?p)
-       (,?p (page code) ,?str))
- do (Claim-derived this this 'editing ?p)
-    (if (not (= pageid ?p))
-      (let ((code (string-split ?str #\newline)))
-        (Remember this this 'pageid ?p)
-        (Remember this this 'line-num 0)
-        (Remember this this 'cursor-x 0)
-        (Remember this this 'mode 'command)
-        (Remember this this 'code-under-edit code))))
-
-(When ((,this has-region (,?ulhc ,?urhc ,?llhc ,?lrhc))
+(When ((,this has-region (editor ,?ulhc ,?urhc ,?llhc ,?lrhc))
        (,this (page rotation) ,?rotation) ; clockwise rotation
        (,this editing ,?p))
  do (let* ((center (vec->ints (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5))))

@@ -5,28 +5,40 @@
 (define line-num 0)
 (define cursor-x 0)
 (define pageid -1)
+(define mode 'command) ; command/insert are only valid options atm
 (define code-under-edit '())
 (define font-height 10) ; todo: make relative to tag size
 
 (When ((,this line-num ,?line-num) ; from Remember
        (,this cursor-x ,?x)
        (,this pageid ,?id)
+       (,this mode ,?mode)
        (,this code-under-edit ,?code))
  do (set! line-num ?line-num)
     (set! cursor-x ?x)
     (set! pageid ?id)
+    (set! mode ?mode)
     (set! code-under-edit ?code))
 
 (When ((key down ,?k))
- do (case ?k
-  ((106) (move-cursor-down)) ; j
-  ((107) (move-cursor-up)) ; k
-  ((104) (move-cursor-left)) ; h
-  ((108) (move-cursor-right)) ; l
-  ((120) (delete-under-cursor)) ; x
-  ((100) (delete-current-line)) ; d
-  ((115) (save-page pageid (string-join code-under-edit "\n"))) ; s
-))
+ do (if (eq? mode 'command)
+        (command-mode ?k)
+        (insert-mode ?k)))
+
+(define (command-mode key)
+  (case key
+    ((106) (move-cursor-down)) ; j
+    ((107) (move-cursor-up)) ; k
+    ((104) (move-cursor-left)) ; h
+    ((108) (move-cursor-right)) ; l
+    ((120) (delete-under-cursor)) ; x
+    ((100) (delete-current-line)) ; d
+    ((105) (change-mode 'insert)) ; i
+    ((115) (save-page pageid (string-join code-under-edit "\n"))) ; s
+  ))
+
+(define (change-mode mode)
+  (Remember this this 'mode mode))
 
 (define (move-cursor-down)
   (if (< line-num (- (length code-under-edit) 1))
@@ -51,8 +63,8 @@
          (line (list-ref code-under-edit line-num))
          (line-len (string-length line)))
   (if (< cursor-x (- line-len 1))
-    (let* ((left (substring line 0 cursor-x))
-           (right (substring line (+ cursor-x 1) line-len))
+    (let* ((left (substring/copy line 0 cursor-x))
+           (right (substring/copy line (+ cursor-x 1) line-len))
            (new-line (string-append left right)))
       (list-set! code-under-edit line-num new-line)
       (Remember this this 'code-under-edit code-under-edit)))))
@@ -62,6 +74,21 @@
     (set! code-under-edit (cdr code-under-edit))
     (list-cdr-set! code-under-edit (- line-num 1) (list-tail code-under-edit (+ line-num 1))))
   (Remember this this 'code-under-edit code-under-edit))
+
+(define (insert-mode key)
+  (if (= key 27) ; escape
+    (change-mode 'command)
+    (insert key)))
+
+(define (insert key)
+  (let* ((c (integer->char key))
+         (line (list-ref code-under-edit line-num))
+         (left (substring/copy line 0 cursor-x))
+         (right (substring/copy line cursor-x))
+         (new-line (string-append left (string c) right)))
+    (list-set! code-under-edit line-num new-line)
+    (move-cursor-right)
+    (Remember this this 'code-under-edit code-under-edit)))
 
 (When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (let* ((diagonal (vec-from-to ?lrhc ?ulhc))
@@ -125,6 +152,7 @@
         (Remember this this 'pageid ?p)
         (Remember this this 'line-num 0)
         (Remember this this 'cursor-x 0)
+        (Remember this this 'mode 'command)
         (Remember this this 'code-under-edit code))))
 
 (When ((,this has-region (,?ulhc ,?urhc ,?llhc ,?lrhc))

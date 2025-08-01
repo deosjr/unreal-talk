@@ -6,16 +6,16 @@
 (define cursor-x 0)
 (define pageid -1)
 (define code-under-edit '())
-(define font-height 10)
+(define font-height 10) ; todo: make relative to tag size
 
-(When ((,this line-num ,?line-num)) ; from Remember
- do (set! line-num ?line-num))
-(When ((,this cursor-x ,?x))
- do (set! cursor-x ?x))
-(When ((,this pageid ,?id))
- do (set! pageid ?id))
-(When ((,this code-under-edit ,?code))
- do (set! code-under-edit ?code))
+(When ((,this line-num ,?line-num) ; from Remember
+       (,this cursor-x ,?x)
+       (,this pageid ,?id)
+       (,this code-under-edit ,?code))
+ do (set! line-num ?line-num)
+    (set! cursor-x ?x)
+    (set! pageid ?id)
+    (set! code-under-edit ?code))
 
 (When ((key down ,?k))
  do (case ?k
@@ -126,7 +126,6 @@
         (Remember this this 'line-num 0)
         (Remember this this 'cursor-x 0)
         (Remember this this 'code-under-edit code))))
-        
 
 (When ((,this has-region (,?ulhc ,?urhc ,?llhc ,?lrhc))
        (,this (page rotation) ,?rotation) ; clockwise rotation

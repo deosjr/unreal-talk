@@ -4,5 +4,9 @@
 (When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (let ((res (get-url (string-append urlpref topic))))
       (if res
-        (Wish-derived this this 'subtitled res)
+        (let* ((sxml (parse-ssax res))
+               (matched ((sxpath '(// p)) sxml))
+               (first (car matched))
+               (str (sxml->string first)))
+          (Wish-derived this this 'subtitled str))
         (Wish-derived this this 'labeled "LOADING"))))

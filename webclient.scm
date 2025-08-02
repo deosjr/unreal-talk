@@ -1,8 +1,10 @@
 (use-modules (web client)
              (web uri)
              (web response)
-             (srfi srfi-1)
              (srfi srfi-11)
+             (sxml ssax)
+             ((sxml xpath) #:select (sxpath))
+             (sxml simple)
              (ice-9 threads))
 
 ;; Shared hashtable and mutex
@@ -63,3 +65,10 @@
               ;; Success or error — return as-is
               (values resp body)))))))
   (helper url max))
+
+(define (parse-ssax str)
+  (call-with-output-file "/dev/null"
+    (lambda (null-port)
+      (with-ssax-error-to-port null-port
+        (lambda ()
+          (ssax:xml->sxml (open-input-string str) '()))))))

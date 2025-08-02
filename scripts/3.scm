@@ -25,20 +25,24 @@
          (msk (create-image 1280 720 0)) ; 0 is 1-channel CV8U
          (center (vec->ints (vec-add ulhc (vec-mul (vec-from-to ulhc lrhc) 0.5))))
          (cx (car center)) (cy (cdr center))
-         (m (rotation-matrix-2d cx cy (- rotation) 1.0))) ; assumes counter-clockwise rotation!
-    (let loop ((lst sxml) (i 0) (tx (car ulhc)))
-      (if (and (< i 5) (not (null? lst)))
+         (m (rotation-matrix-2d cx cy (- rotation) 1.0)) ; assumes counter-clockwise rotation!
+         (dx (car (vec->ints (vec-from-to ulhc urhc))))
+         (tx (+ (car ulhc) padding)) (ty (+ (cdr ulhc) padding)))
+    (let loop ((lst sxml) (i 0) (x tx) (y ty) (w 0))
+      (if (and (< i 10) (not (null? lst)))
           (let* ((str (elem->str (car lst)))
                  (testsize (text-size str font scale thickness))
                  (width (car testsize))
                  (height (cadr testsize))
                  (baseline (caddr testsize)) ; todo: use baseline
                  (strptr (string->pointer str))
-                 (ntx (+ tx padding))
-                 (ty (+ (cdr ulhc) height padding)))
-            (put-text img strptr tx ty font scale 255 255 255 thickness)  ; draw color to 3-channel img
-            (put-text msk strptr tx ty font scale 255 255 255 thickness)  ; draw white to 1-channel mask
-            (loop (cdr lst) (+ i 1) (+ tx width padding)))))
+                 (line-overflow (> dx (+ w width)))
+                 (nw (if line-overflow (+ width padding) (+ w width padding)))
+                 (nx (if line-overflow tx x))
+                 (ny (if line-overflow (+ y height height padding) (+ y height))))
+            (put-text img strptr nx ny font scale 255 255 255 thickness)  ; draw color to 3-channel img
+            (put-text msk strptr nx ny font scale 255 255 255 thickness)  ; draw white to 1-channel mask
+            (loop (cdr lst) (+ i 1) (+ nx width padding) (- ny height) nw))))
     (warp-affine img img m 1280 720) ; officially doesn't support in-place modification?
     (warp-affine msk msk m 1280 720)
     (copy-from-to img projection msk)

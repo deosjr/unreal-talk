@@ -1,4 +1,5 @@
 (include "datalog.scm")
+(use-modules (ice-9 threads))
 
 ; RealTalk
 ; note: 'this' will have to be set within each page execution somehow?
@@ -183,7 +184,7 @@
   (dl-fixpoint-iterate dl))
 
 (define (dl-fixpoint-iterate dl)
-  (let* ((facts (map (lambda (rule) (dl-apply-rule dl rule)) (hashtable-keys (datalog-rdb dl))))
+  (let* ((facts (par-map (lambda (rule) (dl-apply-rule dl rule)) (hashtable-keys (datalog-rdb dl))))
          (factset (foldl (lambda (x y) (set-extend! y x)) facts (make-hash-table)))
          (new (hashtable-keys (set-difference factset (datalog-idb dl)))))
     (set-extend! (datalog-idb dl) new)

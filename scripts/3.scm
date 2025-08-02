@@ -1,6 +1,11 @@
 (define urlpref "https://en.wikipedia.org/api/rest_v1/page/html/")
 (define topic "datalog")
 
+(When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
+ do (let* ((margin (/ 8 5)) (dx (/ 26 5)) (dy (/ 18 5)))
+      (Wish-derived this this 'has-region-from-tag 
+       `(outline ,margin 0 ,dx 0 ,margin ,dy ,dx ,dy))))
+
 (define (elem->str x)
   (if (string? x) x
     (case (car x)

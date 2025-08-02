@@ -10,7 +10,7 @@
               (set! b (caddr ?color))))
       (draw-on-page ?ulhc ?urhc ?lrhc ?llhc r g b)))
 
-(When ((,this has-region (outline ,?ulhc ,?urhc ,?llhc ,?lrhc)))
+(When ((,?p has-region (outline ,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (draw-line projection (car ?ulhc) (cdr ?ulhc) (car ?urhc) (cdr ?urhc) 255 255 255 2)
     (draw-line projection (car ?urhc) (cdr ?urhc) (car ?lrhc) (cdr ?lrhc) 255 255 255 2)
     (draw-line projection (car ?lrhc) (cdr ?lrhc) (car ?llhc) (cdr ?llhc) 255 255 255 2)

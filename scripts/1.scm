@@ -108,7 +108,7 @@
            (emargin (- (/ 2 5))) (edy1 (/ 9 5)) (edy2 (/ 23.7 5)) (edx (/ 15 5)))
       (Wish-derived this this 'has-region-from-tag 
        `(outline ,margin ,margin ,dx ,margin ,margin ,dy ,dx ,dy))
-      (Wish-derived this this 'has-region-from-tag 
+      (Wish-derived this this 'has-region-from-tag-unrotated
        `(editor ,emargin ,edy1 ,edx ,edy1 ,emargin ,edy2 ,edx ,edy2))))
 
 ; x and y are lower left corner in aab. rotation is left to the caller.
@@ -133,8 +133,9 @@
             (draw-editor-line img line ulhcx (+ ulhcy dy) font-height 255 255 255)
             (loop (cdr lst) (+ y 1))))))))
 
+; editor is unrotated, i.e. axis-aligned with ulhc at upper left-hand corner
 (When ((,this has-region (editor ,?ulhc ,?urhc ,?llhc ,?lrhc))
-       (,this (page rotation) ,?rotation) ; clockwise rotation
+       (,this (page rotation) ,?rotation)
        (,this editing ,?p))
  do (let* ((center (vec->ints (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5))))
            (cx (car center)) (cy (cdr center))
@@ -143,21 +144,13 @@
            (charwidth (inexact->exact (round (/ (car textsize) 2)))) ; assumes mono font! also, off-by-one??
            (height (+ (cadr textsize) 8)) ; 8 padding pixels
            ; m rotates back to axis-aligned with ulhc at upper left hand corner
-           (m (rotation-matrix-2d cx cy ?rotation 1.0)) ; counter-clockwise rotation!
            (minv (rotation-matrix-2d cx cy (- ?rotation) 1.0))
            (img (create-image 1280 720 16)) ; 16 is 3-channel CV8U
-           (mask (create-image 1280 720 0)) ; 0 is 1-channel CV8U
-           (in-pts (bytevector->pointer (points->bytevector ?ulhc ?urhc ?lrhc ?llhc)))
-           (out-pts (bytevector->pointer (make-bytevector (* 8 4)))))
-      (transform in-pts 4 m out-pts) ; rotate to axis-aligned
-      (let* ((aabb-pts (pts->coords out-pts 4))
-             (aabb-ulhc (car aabb-pts))
-             (aabb-lrhc (caddr aabb-pts)))
-        (draw-editor-lines img mask aabb-ulhc aabb-lrhc charwidth height 255 255 255)
+           (mask (create-image 1280 720 0))) ; 0 is 1-channel CV8U
+        (draw-editor-lines img mask ?ulhc ?lrhc charwidth height 255 255 255)
         (warp-affine img img minv 1280 720)    ; rotate back
         (warp-affine mask mask minv 1280 720)  ; rotate back
         (copy-from-to img projection mask)
         (free-image img)
         (free-image mask)
-        (free-image m)
-        (free-image minv))))
+        (free-image minv)))

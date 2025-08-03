@@ -40,8 +40,10 @@
                  (nw (if line-overflow (+ width padding) (+ w width padding)))
                  (nx (if line-overflow tx x))
                  (ny (if line-overflow (+ y height height padding) (+ y height))))
+            (if (and (pair? (car lst)) (eq? (caar lst) 'a)) ; hyperlink
+              (fill-poly-img img (cons nx y) (cons (+ nx width) y) (cons (+ nx width) ny) (cons nx ny) 200 100 100))
             (put-text img strptr nx ny font scale 255 255 255 thickness)  ; draw color to 3-channel img
-            (put-text msk strptr nx ny font scale 255 255 255 thickness)  ; draw white to 1-channel mask
+            (fill-poly-img msk (cons nx y) (cons (+ nx width) y) (cons (+ nx width) ny) (cons nx ny) 255 255 255)
             (loop (cdr lst) (+ i 1) (+ nx width padding) (- ny height) nw))))
     (warp-affine img img m 1280 720) ; officially doesn't support in-place modification?
     (warp-affine msk msk m 1280 720)
@@ -50,12 +52,14 @@
     (free-image msk)
     (free-image m)))
 
+(define (get-first-paragraph res)
+  (let* ((sxml (parse-ssax res))
+         (matched ((sxpath '(// p)) sxml))
+         (first (cdar matched))) first))
+
 (When ((,this has-region (wiki ,?ulhc ,?urhc ,?llhc ,?lrhc))
        (,this (page rotation) ,?rotation))
  do (let ((res (get-url (string-append urlpref topic))))
       (if res
-        (let* ((sxml (parse-ssax res))
-               (matched ((sxpath '(// p)) sxml))
-               (first (cdar matched)))
-          (draw-wiki-text first ?rotation ?ulhc ?urhc ?llhc ?lrhc))
+        (draw-wiki-text (get-first-paragraph res) ?rotation ?ulhc ?urhc ?llhc ?lrhc)
         (Wish-derived this this 'labeled "LOADING"))))

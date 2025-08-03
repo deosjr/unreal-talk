@@ -181,3 +181,6 @@
 
 (define (draw-on-page ulhc urhc llhc lrhc r g b)
   (fill-poly projection (bytevector->pointer (points->bytevector ulhc urhc llhc lrhc)) 4 r g b))
+
+(define (fill-poly-img img ulhc urhc llhc lrhc r g b)
+  (fill-poly img (bytevector->pointer (points->bytevector ulhc urhc llhc lrhc)) 4 r g b))

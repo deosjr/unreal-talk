@@ -18,6 +18,15 @@
 (define (p->str p)
   (string-join (map elem->str (cdr p)) ""))
 
+(define (break-up sxml acc)
+  (if (null? sxml)
+    (reverse acc)
+    (let ((head (car sxml))
+          (tail (cdr sxml)))
+      (if (pair? head)
+        (break-up tail (cons head acc))
+        (break-up tail (append (reverse (string-split head #\space)) acc))))))
+
 ; can assume axis-aligned region to draw in
 (define (draw-wiki-text sxml rotation ulhc urhc llhc lrhc)
   (let* ((font 0) (scale 0.5) (thickness 1) (padding 2)
@@ -28,22 +37,28 @@
          (m (rotation-matrix-2d cx cy (- rotation) 1.0)) ; assumes counter-clockwise rotation!
          (dx (car (vec->ints (vec-from-to ulhc urhc))))
          (tx (+ (car ulhc) padding)) (ty (+ (cdr ulhc) padding)))
-    (let loop ((lst sxml) (i 0) (x tx) (y ty) (w 0))
-      (if (and (< i 10) (not (null? lst)))
+    (let loop ((lst (break-up sxml '())) (i 0) (x tx) (y ty) (w 0))
+      (if (and (< i 100) (not (null? lst)))
           (let* ((str (elem->str (car lst)))
                  (testsize (text-size str font scale thickness))
                  (width (car testsize))
                  (height (cadr testsize))
                  (baseline (caddr testsize)) ; todo: use baseline
                  (strptr (string->pointer str))
-                 (line-overflow (> dx (+ w width)))
+                 (line-overflow (< dx (+ w width)))
                  (nw (if line-overflow (+ width padding) (+ w width padding)))
                  (nx (if line-overflow tx x))
-                 (ny (if line-overflow (+ y height height padding) (+ y height))))
+                 (ny (if line-overflow (+ y height height padding) (+ y height)))
+                 (nny (if line-overflow (+ y height) y)))
             (if (and (pair? (car lst)) (eq? (caar lst) 'a)) ; hyperlink
-              (fill-poly-img img (cons nx y) (cons (+ nx width) y) (cons (+ nx width) ny) (cons nx ny) 200 100 100))
+              (let ((ulhc (cons nx nny))
+                    (urhc (cons (+ nx width) nny))
+                    (llhc (cons nx ny))
+                    (lrhc (cons (+ nx width) ny)))
+                (fill-poly-img img ulhc urhc lrhc llhc 200 100 100)
+                (Claim-derived this this 'wiki-link (list ulhc urhc llhc lrhc))))
             (put-text img strptr nx ny font scale 255 255 255 thickness)  ; draw color to 3-channel img
-            (fill-poly-img msk (cons nx y) (cons (+ nx width) y) (cons (+ nx width) ny) (cons nx ny) 255 255 255)
+            (fill-poly-img msk (cons nx nny) (cons (+ nx width) nny) (cons (+ nx width) ny) (cons nx ny) 255 255 255)
             (loop (cdr lst) (+ i 1) (+ nx width padding) (- ny height) nw))))
     (warp-affine img img m 1280 720) ; officially doesn't support in-place modification?
     (warp-affine msk msk m 1280 720)

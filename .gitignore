@@ -1,3 +1,4 @@
 *.dylib
-main
 *.png
+main
+calibration.json

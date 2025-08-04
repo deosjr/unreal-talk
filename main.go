@@ -35,6 +35,8 @@ func main() {
 		return
 	}
 
+	cr := ReadCalibrationResult()
+
 	C.scm_init_guile()
 	C.scm_c_primitive_load(C.CString("main.scm"))
 
@@ -59,8 +61,7 @@ func main() {
 	defer img.Close()
 	// calibration pattern fullscreen fills projector dimensions
 	// projection fullscreen should match those dimensions!
-	// todo: read dimensions from the calibration output?
-	x, y := 1280, 720
+	x, y := cr.ProjectionDimensions.X, cr.ProjectionDimensions.Y
 	projection := gocv.NewMatWithSize(y, x, gocv.MatTypeCV8UC3)
 	defer projection.Close()
 
@@ -73,17 +74,10 @@ func main() {
 		}
 	}
 
-	data := []float64{
-1.3883089177554742, 0.08500871618335931, -744.1644416307363,
--0.022095358148125955, 1.408334851255064, -215.54421787624605,
-1.1986272425640062e-05, 8.685501637361924e-05, 1,
-    	}
-	
     	homography := gocv.NewMatWithSize(3, 3, gocv.MatTypeCV64F)
-
     	for i := 0; i < 3; i++ {
     	    for j := 0; j < 3; j++ {
-    	    	homography.SetDoubleAt(i, j, data[3*i+j])
+    	    	homography.SetDoubleAt(i, j, cr.Homography[i][j])
     	    }
     	}
 
@@ -120,7 +114,6 @@ Loop:
 				sort.Ints(tagids)
 				fmt.Printf("%v\t%v\t%v\n", time_detect.Round(time.Millisecond), time_scm.Round(time.Millisecond), tagids)
 
-				// doesn't show up because fullscreen projection still somehow clips
 				gocv.Rectangle(&projection, image.Rect(0, 0, x, y), color.RGBA{255,255,255,255}, 2)
 				window.IMShow(img)
 				projector.IMShow(projection)

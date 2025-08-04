@@ -1,12 +1,23 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/color"
+	"io"
+	"os"
+	"time"
 
 	"gocv.io/x/gocv"
 )
+
+type CalibrationResult struct {
+	Homography           [3][3]float64	`json:"homography"`
+	WebcamDimensions     image.Point	`json:"webcam"`
+	ProjectionDimensions image.Point	`json:"projection"`
+	// todo: webcam parameters
+}
 
 // numCols/Rows is amount of squares
 // for detection the intersection points matter (-1)
@@ -61,6 +72,7 @@ func calibrate() {
 		}
 	}
     	chesswindow.SetWindowProperty(gocv.WindowPropertyFullscreen, gocv.WindowFullscreen)
+	time.Sleep(1*time.Second)
 
 	var homography gocv.Mat
 	for {
@@ -106,25 +118,50 @@ func calibrate() {
 		homography = h
 		break
 
-/*
-		pts := gocv.NewPoint2fVectorFromMat(corners).ToPoints()
-		for _, p := range pts {
-			gocv.Circle(&img, image.Pt(int(p.X), int(p.Y)), 5, color.RGBA{255, 0, 0, 0}, 2)
-		}
-		for _, p := range projectorPoints {
-			gocv.Circle(&img, image.Pt(int(p.X), int(p.Y)), 5, color.RGBA{0, 255, 0, 0}, 2)
-		}
-		for i := 0; i<3; i++ {
-			for j := 0; j<3; j++ {
-				fmt.Println(homography.GetDoubleAt(i, j))
-			}
-		}
-
-*/
 	}
+
+	cr := CalibrationResult{}
+	cr.WebcamDimensions = image.Pt(img.Size()[1], img.Size()[0])
+	cr.ProjectionDimensions = image.Pt(1280, 720)
+	cr.Homography = [3][3]float64{}
+
 	for i := 0; i<3; i++ {
 		for j := 0; j<3; j++ {
-			fmt.Println(homography.GetDoubleAt(i, j))
+			cr.Homography[i][j] = homography.GetDoubleAt(i,j);
 		}
+	}
+
+	WriteCalibrationResult(cr)
+}
+
+func ReadCalibrationResult() CalibrationResult {
+	file, err := os.Open("calibration.json")
+	if err != nil {
+		panic(err)
+	}
+	b, err := io.ReadAll(file)
+	if err != nil {
+		panic(err)
+	}
+	var cr CalibrationResult
+	if err := json.Unmarshal(b, &cr); err != nil {
+		panic(err)
+	}
+	return cr
+}
+
+func WriteCalibrationResult(cr CalibrationResult) {
+	fmt.Println(cr)
+	file, err := os.OpenFile("calibration.json", os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		panic(err)
+	}
+	b, err := json.Marshal(cr)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(b)
+	if _, err := file.Write(b); err != nil {
+		panic(err)
 	}
 }

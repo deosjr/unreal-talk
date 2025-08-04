@@ -67,12 +67,12 @@ func calibrate() {
 	}
 
 	for {
-		if window.WaitKey(1) == 27 || chesswindow.WaitKey(1) == 27 {
-			break // ESC to start calibrating: gives time to put chessboard in place
+		if window.WaitKey(1) == 102 || chesswindow.WaitKey(1) == 102 { 
+			break // 'f' to start calibrating: gives time to put chessboard in place
 		}
 	}
     	chesswindow.SetWindowProperty(gocv.WindowPropertyFullscreen, gocv.WindowFullscreen)
-	time.Sleep(1*time.Second)
+	time.Sleep(1*time.Second) // one second for fullscreen to properly work
 
 	var homography gocv.Mat
 	for {

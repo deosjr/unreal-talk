@@ -6,9 +6,9 @@ Second attempt at building a Dynamicland style environment
 
 * install golang and guile scheme
 * install opencv and apriltag
-* calibrate camera by running calibrate.go and having chessboard fullscreen
-* todo: manually add homography values to main.go
-* run main.go and fullscreen the projection window on the projector
+* recommended: run webcam driver or use v4l2 to tweak
+* `make calibrate` to calibrate camera: needs chessboard fullscreen (f)
+* `make run` and fullscreen (f) the projection window on the projector
 
 ## Design
 

@@ -36,6 +36,7 @@
 (load-page 2)
 (load-page 3)
 (load-page 4)
+(load-page 6)
 (load-page 7)
 (load-page 8)
 (load-page 10)

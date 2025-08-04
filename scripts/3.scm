@@ -1,8 +1,10 @@
 (define urlpref "https://en.wikipedia.org/api/rest_v1/page/html/")
 (define topic "datalog")
 
+(Claim this '(wiki topic) topic)
+
 (When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
- do (let* ((margin (/ 8 5)) (dx (/ 30 5)) (dy (/ 30 5)))
+ do (let* ((margin (/ 8 5)) (dx (/ 50 5)) (dy (/ 50 5)))
       (Wish-derived this this 'has-region-from-tag 
        `(outline ,margin 0 ,dx 0 ,margin ,dy ,dx ,dy))
       (Wish-derived this this 'has-region-from-tag-unrotated
@@ -29,7 +31,7 @@
 
 ; can assume axis-aligned region to draw in
 (define (draw-wiki-text sxml rotation ulhc urhc llhc lrhc)
-  (let* ((font 0) (scale 0.5) (thickness 1) (padding 2)
+  (let* ((font 0) (scale 0.7) (thickness 1) (padding 2)
          (img (create-image 1280 720 16)) ; 16 is 3-channel CV8U
          (msk (create-image 1280 720 0)) ; 0 is 1-channel CV8U
          (center (vec->ints (vec-add ulhc (vec-mul (vec-from-to ulhc lrhc) 0.5))))
@@ -56,7 +58,7 @@
                     (llhc (cons nx ny))
                     (lrhc (cons (+ nx width) ny)))
                 (fill-poly-img img ulhc urhc lrhc llhc 200 100 100)
-                (Claim-derived this this 'wiki-link (list ulhc urhc llhc lrhc))))
+                (Claim-derived this this 'wiki-link (list str ulhc urhc llhc lrhc))))
             (put-text img strptr nx ny font scale 255 255 255 thickness)  ; draw color to 3-channel img
             (fill-poly-img msk (cons nx nny) (cons (+ nx width) nny) (cons (+ nx width) ny) (cons nx ny) 255 255 255)
             (loop (cdr lst) (+ i 1) (+ nx width padding) (- ny height) nw))))
@@ -70,11 +72,27 @@
 (define (get-first-paragraph res)
   (let* ((sxml (parse-ssax res))
          (matched ((sxpath '(// p)) sxml))
-         (first (cdar matched))) first))
+         (first (if (null? matched) '() (cdar matched)))) first))
 
-(When ((,this has-region (wiki ,?ulhc ,?urhc ,?llhc ,?lrhc))
-       (,this (page rotation) ,?rotation))
+(When ((,?p has-region (wiki ,?ulhc ,?urhc ,?llhc ,?lrhc))
+       (,?p (wiki topic) ,?topic)
+       (,?p (page rotation) ,?rotation))
  do (let ((res (get-url (string-append urlpref topic))))
       (if res
         (draw-wiki-text (get-first-paragraph res) ?rotation ?ulhc ?urhc ?llhc ?lrhc)
         (Wish-derived this this 'labeled "LOADING"))))
+
+(When ((,?p pointer-at (,?px . ,?py))
+       (,?q wiki-link (,?topic ,?ulhc ,?urhc ,?llhc ,?lrhc)))
+  do (let* ((pts (points->bytevector ?ulhc ?urhc ?lrhc ?llhc))
+            (ptr (bytevector->pointer pts))
+            (test (point-polygon-test ptr 4 ?px ?py)))
+    (if (> test 0) (Claim-derived this ?p 'points-at-wiki-link ?topic))))
+
+(When ((,?p has-region (wiki ,?ulhc ,?urhc ,?llhc ,?lrhc))
+       (,?p points-at-wiki-link ,?topic)
+       (,?p (page rotation) ,?rotation))
+ do (let ((res (get-url (string-append urlpref ?topic))))
+      (if res
+        (draw-wiki-text (get-first-paragraph res) ?rotation ?ulhc ?urhc ?llhc ?lrhc)
+        (Wish-derived this ?p 'labeled "LOADING"))))

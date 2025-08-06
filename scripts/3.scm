@@ -1,5 +1,5 @@
 (define urlpref "https://en.wikipedia.org/api/rest_v1/page/html/")
-(define topic "datalog")
+(define topic "owl")
 
 (Claim this '(wiki topic) topic)
 
@@ -14,7 +14,7 @@
   (if (string? x) x
     (case (car x)
       ((b) (car (last-pair x)))
-      ((a) (car (last-pair x))) ; todo: assert link?
+      ((a) (car (last-pair x)))
       (else ""))))
 
 (define (p->str p)
@@ -29,6 +29,20 @@
         (break-up tail (cons head acc))
         (break-up tail (append (reverse (string-split head #\space)) acc))))))
 
+(define (filter-first-paragraph matched)
+  (if (null? matched) '()
+    (cdar (filter (lambda (m) 
+      (if (pair? (cdr m))
+        (if (pair? (cadr m))
+          (= (length (cdadr m)) 1) #f) #f))
+     matched))))
+
+(define (get-first-paragraph res)
+  (let* ((sxml (parse-ssax res))
+         (matched ((sxpath '(// (section (@ data-mw-section-id (equal? "0"))) // p )) sxml))
+         (first (filter-first-paragraph matched)))
+first))
+
 ; can assume axis-aligned region to draw in
 (define (draw-wiki-text sxml rotation ulhc urhc llhc lrhc)
   (let* ((font 0) (scale 0.7) (thickness 1) (padding 2)
@@ -42,6 +56,7 @@
     (let loop ((lst (break-up sxml '())) (i 0) (x tx) (y ty) (w 0))
       (if (and (< i 100) (not (null? lst)))
           (let* ((str (elem->str (car lst)))
+                 ; todo: if bold (b), thickness + 1
                  (testsize (text-size str font scale thickness))
                  (width (car testsize))
                  (height (cadr testsize))
@@ -58,6 +73,7 @@
                     (llhc (cons nx ny))
                     (lrhc (cons (+ nx width) ny)))
                 (fill-poly-img img ulhc urhc lrhc llhc 200 100 100)
+                ; todo: not string but href url
                 (Claim-derived this this 'wiki-link (list str ulhc urhc llhc lrhc))))
             (put-text img strptr nx ny font scale 255 255 255 thickness)  ; draw color to 3-channel img
             (fill-poly-img msk (cons nx nny) (cons (+ nx width) nny) (cons (+ nx width) ny) (cons nx ny) 255 255 255)
@@ -68,11 +84,6 @@
     (free-image img)
     (free-image msk)
     (free-image m)))
-
-(define (get-first-paragraph res)
-  (let* ((sxml (parse-ssax res))
-         (matched ((sxpath '(// p)) sxml))
-         (first (if (null? matched) '() (cdar matched)))) first))
 
 (When ((,?p has-region (wiki ,?ulhc ,?urhc ,?llhc ,?lrhc))
        (,?p (wiki topic) ,?topic)

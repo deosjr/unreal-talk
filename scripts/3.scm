@@ -43,6 +43,9 @@
          (first (filter-first-paragraph matched)))
 first))
 
+(define (find-href a)
+  (substring (cadr (assq 'href (cdr (assq '@ (cdr a))))) 2))
+
 ; can assume axis-aligned region to draw in
 (define (draw-wiki-text sxml rotation ulhc urhc llhc lrhc)
   (let* ((font 0) (scale 0.7) (thickness 1) (padding 2)
@@ -55,7 +58,8 @@ first))
          (tx (+ (car ulhc) padding)) (ty (+ (cdr ulhc) padding)))
     (let loop ((lst (break-up sxml '())) (i 0) (x tx) (y ty) (w 0))
       (if (and (< i 100) (not (null? lst)))
-          (let* ((str (elem->str (car lst)))
+          (let* ((elem (car lst))
+                 (str (elem->str elem))
                  ; todo: if bold (b), thickness + 1
                  (testsize (text-size str font scale thickness))
                  (width (car testsize))
@@ -67,14 +71,13 @@ first))
                  (nx (if line-overflow tx x))
                  (ny (if line-overflow (+ y height height padding) (+ y height)))
                  (nny (if line-overflow (+ y height) y)))
-            (if (and (pair? (car lst)) (eq? (caar lst) 'a)) ; hyperlink
+            (if (and (pair? elem) (eq? (car elem) 'a)) ; hyperlink
               (let ((ulhc (cons nx nny))
                     (urhc (cons (+ nx width) nny))
                     (llhc (cons nx ny))
                     (lrhc (cons (+ nx width) ny)))
                 (fill-poly-img img ulhc urhc lrhc llhc 200 100 100)
-                ; todo: not string but href url
-                (Claim-derived this this 'wiki-link (list str ulhc urhc llhc lrhc))))
+                (Claim-derived this this 'wiki-link (list (find-href elem) ulhc urhc llhc lrhc))))
             (put-text img strptr nx ny font scale 255 255 255 thickness)  ; draw color to 3-channel img
             (fill-poly-img msk (cons nx nny) (cons (+ nx width) nny) (cons (+ nx width) ny) (cons nx ny) 255 255 255)
             (loop (cdr lst) (+ i 1) (+ nx width padding) (- ny height) nw))))

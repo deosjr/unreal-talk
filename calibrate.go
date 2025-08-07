@@ -151,7 +151,7 @@ func ReadCalibrationResult() CalibrationResult {
 }
 
 func WriteCalibrationResult(cr CalibrationResult) {
-	fmt.Println(cr)
+	// todo: nuke previous file
 	file, err := os.OpenFile("calibration.json", os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		panic(err)
@@ -160,7 +160,6 @@ func WriteCalibrationResult(cr CalibrationResult) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(b)
 	if _, err := file.Write(b); err != nil {
 		panic(err)
 	}

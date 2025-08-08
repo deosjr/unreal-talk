@@ -28,6 +28,11 @@
                             #:arg-types (list '*)
                             #:return-type void))
 
+(define decode-image
+  (foreign-library-function lib "decode_image"
+                            #:arg-types (list '* int)
+                            #:return-type '*))
+
 (define matrix-invert
   (foreign-library-function lib "matrix_invert"
                             #:arg-types (list '*)

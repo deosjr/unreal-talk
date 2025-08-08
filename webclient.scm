@@ -28,6 +28,19 @@
      (let-values (((response body) (http-get-follow-redirect url 5)))
        (thread-safe-set! url body)))))
 
+(define (get-url-with-proc url proc)
+  (let ((res (with-mutex url-mutex
+                (hash-ref url-cache url #f))))
+    (if (not res) (async-fetch-with-proc url proc))
+    (if (eq? res 'pending) #f res)))
+
+(define (async-fetch-with-proc url proc)
+  (thread-safe-set! url 'pending)
+  (call-with-new-thread
+   (lambda ()
+     (let-values (((response body) (http-get-follow-redirect url 5)))
+       (thread-safe-set! url (proc body))))))
+
 (define (resolve-uri loc-uri base)
   (let ((base-uri (string->uri base)))
     (cond

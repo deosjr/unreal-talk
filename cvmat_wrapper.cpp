@@ -36,6 +36,16 @@ void free_image(Image* img) {
     }
 }
 
+Image* decode_image(const unsigned char* data, int size) {
+    Image* img = new Image;
+    std::vector<uchar> buffer(data, data + size);
+    img->mat = cv::imdecode(buffer, cv::IMREAD_COLOR);
+    if (img->mat.empty()) {
+        return nullptr;
+    }
+    return img;
+}
+
 Image* matrix_invert(Image* img) {
     Image* inv = new Image;
     inv->mat = img->mat.inv();

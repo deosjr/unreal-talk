@@ -26,6 +26,11 @@
 
 (define (vec-from-to p q) (vec-sub q p))
 
+(define (vec-length p)
+  (let* ((px (car p)) (py (cdr p))
+         (px2 (* px px)) (py2 (* py py)))
+    (sqrt (+ px2 py2))))
+
 (load-background-page 9001)  ; labeling
 (load-background-page 9002)  ; whiskers
 (load-background-page 9003)  ; highlight
@@ -39,6 +44,10 @@
 (load-page 6)
 (load-page 7)
 (load-page 8)
+(load-page 9)
 (load-page 10)
 (load-page 11)
 (load-page 12)
+(load-page 13)
+(load-page 14)
+(load-page 15)

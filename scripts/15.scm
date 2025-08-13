@@ -1,19 +1,25 @@
 ; graph plotting total production in MW
 ; x-axis is time, y-axis is MW
+; todo: move MW specific logic out to a separate page
+; and offer only support for drawing arbitratry data points
 
 (define maxlen 100)
-(define mw-data '())
+(define consumption-data '())
+(define production-data '())
 (define minMW 0)
-(define maxMW 1000)
+(define maxMW 500)
 
 (define (add-data-point data x)
   (let ((newdata (if (< (length data) maxlen)
                      data
                      (reverse (cdr (reverse data))))))
-    (set! mw-data (cons x newdata))))
+    (cons x newdata)))
+
+(When ((,?grid total-mw-consumption ,?consMW))
+ do (set! consumption-data (add-data-point consumption-data ?consMW)))
 
 (When ((,?grid total-mw-production ,?prodMW))
- do (add-data-point mw-data ?prodMW))
+ do (set! production-data (add-data-point production-data ?prodMW)))
 
 (When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (let* ((margin (/ 7 5)) (dx (/ 30 5)) (dy (/ 30 5)))
@@ -23,16 +29,21 @@
        `(graph ,margin 0 ,dx 0 ,margin ,dy ,dx ,dy))))
 
 (When ((,this has-region (graph ,?ulhc ,?urhc ,?llhc ,?lrhc)))
+ do (let ((graph (list ?ulhc ?urhc ?llhc ?lrhc)))
+      (Wish-derived this this 'plot-data `(,consumption-data ,minMW ,maxMW ,maxlen ,graph (255 0 0)))
+      (Wish-derived this this 'plot-data `(,production-data ,minMW ,maxMW ,maxlen ,graph (0 255 0)))))
+
+(When ((,?someone wishes (,?someone plot-data (,?data ,?minY ,?maxY ,?stepsX (,?ulhc ,?urhc ,?llhc ,?lrhc) (,?r ,?g ,?b)))))
  do (let* ((lvec (vec-from-to ?urhc ?ulhc))
            (uvec (vec-from-to ?llhc ?ulhc)))
-    (if (not (null? mw-data))
-      (let loop ((i 0) (lst (cdr mw-data)) (last (car mw-data)))
+    (if (not (null? ?data))
+      (let loop ((i 0) (lst (cdr ?data)) (last (car ?data)))
         (if (not (null? lst))
-          (let* ((start (vec->ints (vec-add (vec-add ?lrhc (vec-mul lvec (/ i maxlen)))
-                                                          (vec-mul uvec (/ last maxMW)))))
+          (let* ((start (vec->ints (vec-add (vec-add ?lrhc (vec-mul lvec (/ i ?stepsX)))
+                                                          (vec-mul uvec (/ last ?maxY)))))
                  (startx (car start)) (starty (cdr start))
-                 (end (vec->ints (vec-add (vec-add ?lrhc (vec-mul lvec (/ (+ i 1) maxlen)))
-                                                        (vec-mul uvec (/ (car lst) maxMW)))))
+                 (end (vec->ints (vec-add (vec-add ?lrhc (vec-mul lvec (/ (+ i 1) ?stepsX)))
+                                                        (vec-mul uvec (/ (car lst) ?maxY)))))
                  (endx (car end)) (endy (cdr end)))
-            (draw-line projection startx starty endx endy 0 255 0 2)
+            (draw-line projection startx starty endx endy ?r ?g ?b 2)
             (loop (+ i 1) (cdr lst) (car lst))))))))

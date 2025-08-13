@@ -6,8 +6,11 @@
 (define maxlen 100)
 (define consumption-data '())
 (define production-data '())
+(define frequency-data '())
 (define minMW 0)
 (define maxMW 500)
+(define minHz 4900)
+(define maxHz 5100)
 
 (define (add-data-point data x)
   (let ((newdata (if (< (length data) maxlen)
@@ -21,6 +24,10 @@
 (When ((,?grid total-mw-production ,?prodMW))
  do (set! production-data (add-data-point production-data ?prodMW)))
 
+(When ((,?grid grid-frequency ,?freq))
+ do (let ((freq (inexact->exact (round (* 100 ?freq)))))
+      (set! frequency-data (add-data-point frequency-data freq))))
+
 (When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (let* ((margin (/ 7 5)) (dx (/ 30 5)) (dy (/ 30 5)))
       (Wish-derived this this 'has-region-from-tag 
@@ -30,8 +37,10 @@
 
 (When ((,this has-region (graph ,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (let ((graph (list ?ulhc ?urhc ?llhc ?lrhc)))
+      (fill-poly projection (bytevector->pointer (points->bytevector ?ulhc ?urhc ?lrhc ?llhc)) 4 100 100 100)
       (Wish-derived this this 'plot-data `(,consumption-data ,minMW ,maxMW ,maxlen ,graph (255 0 0)))
-      (Wish-derived this this 'plot-data `(,production-data ,minMW ,maxMW ,maxlen ,graph (0 255 0)))))
+      (Wish-derived this this 'plot-data `(,production-data ,minMW ,maxMW ,maxlen ,graph (0 255 0)))
+      (Wish-derived this this 'plot-data `(,frequency-data ,minHz ,maxHz ,maxlen ,graph (0 0 255)))))
 
 (When ((,?someone wishes (,?someone plot-data (,?data ,?minY ,?maxY ,?stepsX (,?ulhc ,?urhc ,?llhc ,?lrhc) (,?r ,?g ,?b)))))
  do (let* ((lvec (vec-from-to ?urhc ?ulhc))

@@ -14,4 +14,5 @@ run: build-opencv build-go
 	./main
 
 calibrate: build-opencv build-go
+	rm calibration.json
 	./main --calibrate

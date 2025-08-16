@@ -77,7 +77,9 @@ first))
                     (llhc (cons nx ny))
                     (lrhc (cons (+ nx width) ny)))
                 (fill-poly-img img ulhc urhc lrhc llhc 200 100 100)
-                (Claim-derived this this 'wiki-link (list (find-href elem) ulhc urhc llhc lrhc))))
+		; this claim needs unrotated points!
+                (let ((unrotated (rotate-rect ulhc urhc llhc lrhc rotation)))
+                  (Claim-derived this this 'wiki-link (cons (find-href elem) unrotated)))))
             (put-text img strptr nx ny font scale 255 255 255 thickness)  ; draw color to 3-channel img
             (fill-poly-img msk (cons nx nny) (cons (+ nx width) nny) (cons (+ nx width) ny) (cons nx ny) 255 255 255)
             (loop (cdr lst) (+ i 1) (+ nx width padding) (- ny height) nw))))

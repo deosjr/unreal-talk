@@ -30,13 +30,5 @@
                                     ?ulhc ?urhc ?llhc ?lrhc))
            (ulhc (car region)) (urhc (cadr region))
            (llhc (caddr region)) (lrhc (cadddr region))
-           (center (vec->ints (vec-add ulhc (vec-mul (vec-from-to ulhc lrhc) 0.5))))
-           (cx (car center)) (cy (cdr center))
-           ; m rotates back to axis-aligned with ulhc at upper left hand corner
-           (m (rotation-matrix-2d cx cy ?rotation 1.0)) ; counter-clockwise rotation!
-           (in-pts (bytevector->pointer (points->bytevector ulhc urhc llhc lrhc)))
-           (out-pts (bytevector->pointer (make-bytevector (* 8 4)))))
-      (transform in-pts 4 m out-pts) ; rotate to axis-aligned
-      (free-image m)
-      (let ((aabb-pts (pts->coords out-pts 4)))
-        (Claim-derived this ?p 'has-region (cons ?region aabb-pts)))))
+           (aabb-pts (rotate-rect ulhc urhc llhc lrhc ?rotation)))
+        (Claim-derived this ?p 'has-region (cons ?region aabb-pts))))

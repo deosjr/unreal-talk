@@ -189,3 +189,13 @@
 
 (define (fill-poly-img img ulhc urhc llhc lrhc r g b)
   (fill-poly img (bytevector->pointer (points->bytevector ulhc urhc llhc lrhc)) 4 r g b))
+
+(define (rotate-rect ulhc urhc llhc lrhc rotation)
+  (let* ((center (vec->ints (vec-add ulhc (vec-mul (vec-from-to ulhc lrhc) 0.5))))
+         (cx (car center)) (cy (cdr center))
+         (m (rotation-matrix-2d cx cy rotation 1.0)) ; counter-clockwise rotation!
+         (in-pts (bytevector->pointer (points->bytevector ulhc urhc llhc lrhc)))
+         (out-pts (bytevector->pointer (make-bytevector (* 8 4)))))
+      (transform in-pts 4 m out-pts)
+      (free-image m)
+      (pts->coords out-pts 4)))

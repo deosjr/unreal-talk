@@ -134,8 +134,7 @@
             (loop (cdr lst) (+ y 1))))))))
 
 ; editor is unrotated, i.e. axis-aligned with ulhc at upper left-hand corner
-(When ((,this has-region (editor ,?ulhc ,?urhc ,?llhc ,?lrhc))
-       (,this (page rotation) ,?rotation)
+(When ((,this has-region (editor ,?rotation ,?ulhc ,?urhc ,?llhc ,?lrhc))
        (,this editing ,?p))
  do (let* ((center (vec->ints (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5))))
            (cx (car center)) (cy (cdr center))

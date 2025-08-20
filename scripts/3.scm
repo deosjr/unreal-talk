@@ -90,9 +90,8 @@ first))
     (free-image msk)
     (free-image m)))
 
-(When ((,?p has-region (wiki ,?ulhc ,?urhc ,?llhc ,?lrhc))
-       (,?p (wiki topic) ,?topic)
-       (,?p (page rotation) ,?rotation))
+(When ((,?p has-region (wiki ,?rotation ,?ulhc ,?urhc ,?llhc ,?lrhc))
+       (,?p (wiki topic) ,?topic))
  do (let* ((url (string-append urlpref topic))
            (res (get-url-with-proc url get-first-paragraph)))
       (if res
@@ -106,9 +105,8 @@ first))
             (test (point-polygon-test ptr 4 ?px ?py)))
     (if (> test 0) (Claim-derived this ?p 'points-at-wiki-link ?topic))))
 
-(When ((,?p has-region (wiki ,?ulhc ,?urhc ,?llhc ,?lrhc))
-       (,?p points-at-wiki-link ,?topic)
-       (,?p (page rotation) ,?rotation))
+(When ((,?p has-region (wiki ,?rotation ,?ulhc ,?urhc ,?llhc ,?lrhc))
+       (,?p points-at-wiki-link ,?topic))
  do (let* ((url (string-append urlpref ?topic))
            (res (get-url-with-proc url get-first-paragraph)))
       (if res

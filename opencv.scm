@@ -190,6 +190,7 @@
 (define (fill-poly-img img ulhc urhc llhc lrhc r g b)
   (fill-poly img (bytevector->pointer (points->bytevector ulhc urhc llhc lrhc)) 4 r g b))
 
+; note: rotates counter-clockwise!!
 (define (rotate-rect ulhc urhc llhc lrhc rotation)
   (let* ((center (vec->ints (vec-add ulhc (vec-mul (vec-from-to ulhc lrhc) 0.5))))
          (cx (car center)) (cy (cdr center))

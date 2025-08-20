@@ -31,4 +31,4 @@
            (ulhc (car region)) (urhc (cadr region))
            (llhc (caddr region)) (lrhc (cadddr region))
            (aabb-pts (rotate-rect ulhc urhc llhc lrhc ?rotation)))
-        (Claim-derived this ?p 'has-region (cons ?region aabb-pts))))
+        (Claim-derived this ?p 'has-region (cons ?region (cons ?rotation aabb-pts)))))

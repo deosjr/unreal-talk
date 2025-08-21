@@ -189,12 +189,14 @@ func parseDetection(img gocv.Mat, x, y int, homography gocv.Mat, d C.Detection) 
 	center := image.Pt(int(d.cx), int(d.cy))
 	// The corners of the tag in image pixel coordinates. These always
 	// wrap counter-clock wise around the tag.
+/*
 	points := []image.Point{
 		image.Pt(int(d.corners[0][0]), int(d.corners[0][1])),
 		image.Pt(int(d.corners[1][0]), int(d.corners[1][1])),
 		image.Pt(int(d.corners[2][0]), int(d.corners[2][1])),
 		image.Pt(int(d.corners[3][0]), int(d.corners[3][1])),
 	}
+*/
 	// todo: this shows when capturing webcam appearance, but is debug only info!
 	// solution: copy img to debug mat and draw that on debug window?
 	gocv.Circle(&img, center, 5, color.RGBA{0, 255, 0, 0}, 2)
@@ -225,8 +227,9 @@ func parseDetection(img gocv.Mat, x, y int, homography gocv.Mat, d C.Detection) 
 	}
 	projected := dstPoints.ToPoints()
 
-	dx := float64(points[2].X - points[3].X)
-	dy := float64(points[2].Y - points[3].Y)
+	// note: should calculate on projection points, not webcam points!!
+	dx := float64(projected[2].X - projected[3].X)
+	dy := float64(projected[2].Y - projected[3].Y)
 	angle := math.Atan2(dy, dx)
 	if angle < 0 {
 		angle += 2 * math.Pi

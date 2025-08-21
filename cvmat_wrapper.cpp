@@ -115,6 +115,11 @@ void rectangle(Image* img, int x0, int y0, int x1, int y1, int r, int g, int b, 
     cv::rectangle(img->mat, from, to, cv::Scalar(b, g, r), thickness, cv::LINE_8, 0);
 }
 
+void circle(Image* img, int cx, int cy, int radius, int r, int g, int b, int thickness) {
+    cv::Point center(cx, cy);
+    cv::circle(img->mat, center, radius, cv::Scalar(b, g, r), thickness, cv::LINE_8, 0);
+}
+
 // Fill a polygon defined by points [(x0,y0), (x1,y1), ...]
 void fill_poly(Image* img, const int* pts, int npts, int r, int g, int b) {
     std::vector<cv::Point> points;

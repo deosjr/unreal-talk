@@ -78,6 +78,11 @@
                             #:arg-types (list '* int int int int int int int int)
                             #:return-type void))
 
+(define draw-circle
+  (foreign-library-function lib "circle"
+                            #:arg-types (list '* int int int int int int int)
+                            #:return-type void))
+
 (define fill-poly
   (foreign-library-function lib "fill_poly"
                             #:arg-types (list '* '* int int int int)

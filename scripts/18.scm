@@ -16,19 +16,18 @@
            (bx (/ field-width 2))
            (by (/ field-height 2))
            (ball-pos (vec-mul (cons bx by) scale))
-           (ball-vel (cons 0 0))
+           (ball-vel (cons 5 -5))
            (paddle-y (- (inexact->exact (round (/ field-height 2))) 2)))
       (Claim-derived this this 'scale scale)
       (Remember this this 'ball-pos ball-pos)
       (Remember this this 'ball-vel ball-vel)
       (Remember this this 'left-paddle-y paddle-y)
-      (Remember this this 'right-paddle-y paddle-y)
-      (Remember this this 'left-paddle-v 0)
-      (Remember this this 'right-paddle-v 0))
+      (Remember this this 'right-paddle-y paddle-y))
     (let* ((margin (/ 8 5)) (dx (/ 101 5)) (dy (/ 69 5)))
       (Wish-derived this this 'has-region-from-tag-unrotated
        `(pong 0 ,margin ,dx ,margin 0 ,dy ,dx ,dy))))
 
+; calculate _new_ iteration updates
 ; time only moves forward if we have two paddles
 ; otherwise ball is suspended midair waiting for paddle
 ; paddle-velocity is claimed based on virtual and real paddle
@@ -37,19 +36,25 @@
        (,this pong-paddle (left . ,?y1))
        (,this pong-paddle (right . ,?y2))
        (,this ball-pos ,?ball-pos)
-       (,this ball-velocity ,?ball-vel)
+       (,this ball-vel ,?ball-vel)
        (,this left-paddle-y ,?lefty)
-       (,this left-velocity ,?leftv)
-       (,this right-paddle-y ,?righty)
-       (,this right-velocity ,?rightv))
- do (
-; todo: update positions based on velocity and boundaries
-(display 'todo)
+       (,this right-paddle-y ,?righty))
+ do (let* ((newpos (vec-add ?ball-pos ?ball-vel))
+           (newx (car newpos))
+           (newy (cdr newpos)))
+      (if (or (<= newy 0) (>= newy (* ?scale field-height)))
+        (Remember this this 'ball-vel (cons (car ?ball-vel) (- (cdr ?ball-vel))))
+        (Remember this this 'ball-vel ?ball-vel))
+      (if (or (<= newx 0) (>= newx (* ?scale field-width)))
+        (begin 
+          (Remember this this 'ball-pos (vec-mul (cons (/ field-width 2) (/ field-height 2)) ?scale))
+          (Remember this this 'ball-vel (cons (- (car ?ball-vel)) (cdr ?ball-vel)))
+        )
+        (Remember this this 'ball-pos newpos))
 ))
 
 (When ((,this pong-paddle (left . ,?attractorY))
-       (,this left-paddle-y ,?paddleY)
-       (,this left-paddle-v ,?paddleV))
+       (,this left-paddle-y ,?paddleY))
  do
 ; todo: update paddle velocity based on previous
 (let ((y (inexact->exact (round ?attractorY))))
@@ -57,14 +62,14 @@
 )
 
 (When ((,this pong-paddle (right . ,?attractorY))
-       (,this right-paddle-y ,?paddleY)
-       (,this right-paddle-v ,?paddleV))
+       (,this right-paddle-y ,?paddleY))
  do
 ; todo: update paddle velocity based on previous
 (let ((y (inexact->exact (round ?attractorY))))
   (Remember this this 'right-paddle-y y))
 )
 
+; draw _last_ iteration updates to projection
 (When ((,this has-region (pong ,?rotation ,?ulhc ,?urhc ,?llhc ,?lrhc))
        (,this scale ,?scale)
        (,this ball-pos ,?ball-pos)

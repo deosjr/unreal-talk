@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"image"
-	"image/color"
+    "image"
+    "image/color"
 	"io"
 	"os"
 	"time"

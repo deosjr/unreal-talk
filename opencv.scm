@@ -198,10 +198,13 @@
 ; note: rotates counter-clockwise!!
 (define (rotate-rect ulhc urhc llhc lrhc rotation)
   (let* ((center (vec->ints (vec-add ulhc (vec-mul (vec-from-to ulhc lrhc) 0.5))))
-         (cx (car center)) (cy (cdr center))
-         (m (rotation-matrix-2d cx cy rotation 1.0)) ; counter-clockwise rotation!
-         (in-pts (bytevector->pointer (points->bytevector ulhc urhc llhc lrhc)))
-         (out-pts (bytevector->pointer (make-bytevector (* 8 4)))))
-      (transform in-pts 4 m out-pts)
-      (free-image m)
-      (pts->coords out-pts 4)))
+         (cx (car center)) (cy (cdr center)))
+    (rotate-points-around cx cy rotation ulhc urhc llhc lrhc)))
+
+(define (rotate-points-around cx cy rotation . points)
+  (let* ((m (rotation-matrix-2d cx cy rotation 1.0))
+         (in-pts (bytevector->pointer (apply points->bytevector points)))
+         (out-pts (bytevector->pointer (make-bytevector (* 8 (length points))))))
+    (transform in-pts (length points) m out-pts)
+    (free-image m)
+    (pts->coords out-pts (length points))))

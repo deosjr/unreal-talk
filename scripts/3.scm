@@ -55,9 +55,11 @@ first))
          (cx (car center)) (cy (cdr center))
          (m (rotation-matrix-2d cx cy (- rotation) 1.0)) ; assumes counter-clockwise rotation!
          (dx (car (vec->ints (vec-from-to ulhc urhc))))
-         (tx (+ (car ulhc) padding)) (ty (+ (cdr ulhc) padding)))
+         (dy (cdr (vec->ints (vec-from-to ulhc llhc))))
+         (tx (+ (car ulhc) padding)) (ty (+ (cdr ulhc) padding))
+         (max-y (+ (cdr ulhc) dy (- padding))))
     (let loop ((lst (break-up sxml '())) (i 0) (x tx) (y ty) (w 0))
-      (if (and (< i 100) (not (null? lst)))
+      (if (and (< i 100) (< y max-y) (not (null? lst)))
           (let* ((elem (car lst))
                  (str (elem->str elem))
                  ; todo: if bold (b), thickness + 1
@@ -92,7 +94,7 @@ first))
 
 (When ((,?p has-region (wiki ,?rotation ,?ulhc ,?urhc ,?llhc ,?lrhc))
        (,?p (wiki topic) ,?topic))
- do (let* ((url (string-append urlpref topic))
+ do (let* ((url (string-append urlpref ?topic))
            (res (get-url-with-proc url get-first-paragraph)))
       (if res
         (draw-wiki-text res ?rotation ?ulhc ?urhc ?llhc ?lrhc)

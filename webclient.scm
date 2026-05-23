@@ -5,7 +5,28 @@
              (sxml ssax)
              ((sxml xpath) #:select (sxpath))
              (sxml simple)
+             (ice-9 popen)
+             (ice-9 textual-ports)
              (ice-9 threads))
+
+;; HTTPS via curl. Guile's (web client) uses (gnutls) for TLS, but on
+;; macOS GnuTLS has no system trust store and no public hook for
+;; configuring one through (web client), so every HTTPS fetch fails
+;; with `signer-not-found`. curl uses macOS Keychain through its own
+;; TLS stack and handles redirects with -L, so shelling out sidesteps
+;; the whole Guile-TLS mess.
+;;
+;; open-pipe* spawns curl without going through a shell — no quoting
+;; concerns with URL contents. -sLf: silent, follow redirects, fail
+;; non-zero on HTTP error status (so we can detect 404s).
+(define (curl-fetch url)
+  (let* ((port (open-pipe* OPEN_READ "curl" "-sLf" url))
+         (body (get-string-all port))
+         (status (close-pipe port)))
+    (if (and (zero? (status:exit-val status))
+             (not (string-null? body)))
+        body
+        #f)))
 
 ;; Shared hashtable and mutex
 (define url-cache (make-hash-table))
@@ -25,8 +46,12 @@
   (thread-safe-set! url 'pending)
   (call-with-new-thread
    (lambda ()
-     (let-values (((response body) (http-get-follow-redirect url 5)))
-       (thread-safe-set! url body)))))
+     (catch #t
+       (lambda ()
+         (thread-safe-set! url (curl-fetch url)))
+       (lambda (key . args)
+         (format #t "fetch failed for ~a: ~a ~a\n" url key args)
+         (thread-safe-set! url #f))))))
 
 (define (get-url-with-proc url proc)
   (let ((res (with-mutex url-mutex
@@ -38,8 +63,13 @@
   (thread-safe-set! url 'pending)
   (call-with-new-thread
    (lambda ()
-     (let-values (((response body) (http-get-follow-redirect url 5)))
-       (thread-safe-set! url (proc body))))))
+     (catch #t
+       (lambda ()
+         (let ((body (curl-fetch url)))
+           (thread-safe-set! url (if body (proc body) #f))))
+       (lambda (key . args)
+         (format #t "fetch failed for ~a: ~a ~a\n" url key args)
+         (thread-safe-set! url #f))))))
 
 (define (resolve-uri loc-uri base)
   (let ((base-uri (string->uri base)))

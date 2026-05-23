@@ -19,7 +19,7 @@
              (tcx (car tcenter))
              (y (/ (cdr (vec-sub tcenter ?ulhc)) ?scale)))
         (cond
-          [(< tcx (car ?ulhc)) (Claim-derived this ?pong 'pong-paddle (cons 'left y))]
-          [(> tcx (car ?urhc)) (Claim-derived this ?pong 'pong-paddle (cons 'right y))]
+          [(< tcx (car ?ulhc)) (Claim ?pong 'pong-paddle (cons 'left y))]
+          [(> tcx (car ?urhc)) (Claim ?pong 'pong-paddle (cons 'right y))]
         )
 )))

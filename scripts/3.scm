@@ -5,9 +5,9 @@
 
 (When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (let* ((margin (/ 8 5)) (dx (/ 50 5)) (dy (/ 50 5)))
-      (Wish-derived this this 'has-region-from-tag 
+      (Wish this 'has-region-from-tag 
        `(outline ,margin 0 ,dx 0 ,margin ,dy ,dx ,dy))
-      (Wish-derived this this 'has-region-from-tag-unrotated
+      (Wish this 'has-region-from-tag-unrotated
        `(wiki ,margin 0 ,dx 0 ,margin ,dy ,dx ,dy))))
 
 (define (elem->str x)
@@ -79,7 +79,7 @@ first))
                 (fill-poly-img img ulhc urhc lrhc llhc 200 100 100)
 		; this claim needs unrotated points!
                 (let ((unrotated (rotate-rect ulhc urhc llhc lrhc rotation)))
-                  (Claim-derived this this 'wiki-link (cons (find-href elem) unrotated)))))
+                  (Claim this 'wiki-link (cons (find-href elem) unrotated)))))
             (put-text img strptr nx ny font scale 255 255 255 thickness)  ; draw color to 3-channel img
             (fill-poly-img msk (cons nx nny) (cons (+ nx width) nny) (cons (+ nx width) ny) (cons nx ny) 255 255 255)
             (loop (cdr lst) (+ i 1) (+ nx width padding) (- ny height) nw))))
@@ -96,14 +96,14 @@ first))
            (res (get-url-with-proc url get-first-paragraph)))
       (if res
         (draw-wiki-text res ?rotation ?ulhc ?urhc ?llhc ?lrhc)
-        (Wish-derived this this 'labeled "LOADING"))))
+        (Wish this 'subtitled "LOADING"))))
 
 (When ((,?p pointer-at (,?px . ,?py))
        (,?q wiki-link (,?topic ,?ulhc ,?urhc ,?llhc ,?lrhc)))
   do (let* ((pts (points->bytevector ?ulhc ?urhc ?lrhc ?llhc))
             (ptr (bytevector->pointer pts))
             (test (point-polygon-test ptr 4 ?px ?py)))
-    (if (> test 0) (Claim-derived this ?p 'points-at-wiki-link ?topic))))
+    (if (> test 0) (Claim ?p 'points-at-wiki-link ?topic))))
 
 (When ((,?p has-region (wiki ,?rotation ,?ulhc ,?urhc ,?llhc ,?lrhc))
        (,?p points-at-wiki-link ,?topic))
@@ -111,4 +111,4 @@ first))
            (res (get-url-with-proc url get-first-paragraph)))
       (if res
         (draw-wiki-text res ?rotation ?ulhc ?urhc ?llhc ?lrhc)
-        (Wish-derived this ?p 'labeled "LOADING"))))
+        (Wish ?p 'subtitled "LOADING"))))

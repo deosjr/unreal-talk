@@ -8,7 +8,7 @@
            (right-mid (vec-add ?pulhc (vec-mul (vec-from-to ?plrhc ?pulhc) (/ 2 5))))
            (right-midx (inexact->exact (round (car right-mid)))) (right-midy (inexact->exact (round (cdr right-mid)))) )
       (draw-rectangle projection left-midx left-midy right-midx right-midy 255 255 255 2)
-      (Claim-derived this (gensym) 'selection-rect (cons (cons left-midx left-midy) (cons right-midx right-midy)))))
+      (Claim (gensym) 'selection-rect (cons (cons left-midx left-midy) (cons right-midx right-midy)))))
 
 ; take region p-q in webcam space
 ; resize webcam region to projection space based on p-q size

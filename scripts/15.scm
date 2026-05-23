@@ -30,17 +30,17 @@
 
 (When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (let* ((margin (/ 7 5)) (dx (/ 30 5)) (dy (/ 30 5)))
-      (Wish-derived this this 'has-region-from-tag 
+      (Wish this 'has-region-from-tag 
        `(outline ,margin 0 ,dx 0 ,margin ,dy ,dx ,dy))
-      (Wish-derived this this 'has-region-from-tag 
+      (Wish this 'has-region-from-tag 
        `(graph ,margin 0 ,dx 0 ,margin ,dy ,dx ,dy))))
 
 (When ((,this has-region (graph ,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (let ((graph (list ?ulhc ?urhc ?llhc ?lrhc)))
       (fill-poly projection (bytevector->pointer (points->bytevector ?ulhc ?urhc ?lrhc ?llhc)) 4 100 100 100)
-      (Wish-derived this this 'plot-data `(,consumption-data ,minMW ,maxMW ,maxlen ,graph (255 0 0)))
-      (Wish-derived this this 'plot-data `(,production-data ,minMW ,maxMW ,maxlen ,graph (0 255 0)))
-      (Wish-derived this this 'plot-data `(,frequency-data ,minHz ,maxHz ,maxlen ,graph (0 0 255)))))
+      (Wish this 'plot-data `(,consumption-data ,minMW ,maxMW ,maxlen ,graph (255 0 0)))
+      (Wish this 'plot-data `(,production-data ,minMW ,maxMW ,maxlen ,graph (0 255 0)))
+      (Wish this 'plot-data `(,frequency-data ,minHz ,maxHz ,maxlen ,graph (0 0 255)))))
 
 (When ((,?someone wishes (,?someone plot-data (,?data ,?minY ,?maxY ,?stepsX (,?ulhc ,?urhc ,?llhc ,?lrhc) (,?r ,?g ,?b)))))
  do (let* ((lvec (vec-from-to ?urhc ?ulhc))

@@ -57,7 +57,19 @@ build-go:
 # Run / calibrate.
 # ---------------------------------------------------------------------
 
+# Homebrew installs Guile site modules (e.g. guile-gnutls) into
+# /opt/homebrew/share/guile/site/3.0, but the Guile embedded into `main`
+# uses Guile's compiled-in default load path which only sees its own
+# Cellar. Point GUILE_*_PATH at the shared site dirs so HTTPS via
+# (web client) -> (gnutls) actually resolves.
+GUILE_SITE := /opt/homebrew/share/guile/site/3.0
+GUILE_SITE_CCACHE := /opt/homebrew/lib/guile/3.0/site-ccache
+GUILE_EXT := /opt/homebrew/lib/guile/3.0/extensions
+
 run: build-opencv build-go
+	GUILE_LOAD_PATH="$(GUILE_SITE)" \
+	GUILE_LOAD_COMPILED_PATH="$(GUILE_SITE_CCACHE)" \
+	GUILE_SYSTEM_EXTENSIONS_PATH="$(GUILE_EXT)" \
 	./main
 
 calibrate: build-opencv build-go

@@ -29,6 +29,15 @@
   (hash-set! (datalog-edb dl) (list entity attr value) #t)
   (dl-update-indices! dl (list entity attr value)))
 
+; sibling of dl-assert! for facts derived during fixpoint: writes to the
+; IDB (so the next dl-fixpoint! reset can retract them) and to the
+; indices (so dl-findo can match them in subsequent iterations). No EDB
+; write — derived facts live for one fixpoint and are re-derived if
+; their preconditions still hold.
+(define (dl-assert-derived! dl entity attr value)
+  (hash-set! (datalog-idb dl) (list entity attr value) #t)
+  (dl-update-indices! dl (list entity attr value)))
+
 (define (dl-update-indices! dl tuple)
    (let ((entity (car tuple))
          (attr (cadr tuple))

@@ -18,13 +18,13 @@
            (ball-pos (vec-mul (cons bx by) scale))
            (ball-vel (cons 5 -5))
            (paddle-y (- (inexact->exact (round (/ field-height 2))) 2)))
-      (Claim-derived this this 'scale scale)
+      (Claim this 'scale scale)
       (Remember this this 'ball-pos ball-pos)
       (Remember this this 'ball-vel ball-vel)
       (Remember this this 'left-paddle-y paddle-y)
       (Remember this this 'right-paddle-y paddle-y))
     (let* ((margin (/ 8 5)) (dx (/ 101 5)) (dy (/ 69 5)))
-      (Wish-derived this this 'has-region-from-tag-unrotated
+      (Wish this 'has-region-from-tag-unrotated
        `(pong 0 ,margin ,dx ,margin 0 ,dy ,dx ,dy))))
 
 ; calculate _new_ iteration updates

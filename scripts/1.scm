@@ -92,7 +92,7 @@
 
 (When ((,this points-at ,?p)
        (,?p (page code) ,?str))
- do (Claim-derived this this 'editing ?p)
+ do (Claim this 'editing ?p)
     (if (not (= pageid ?p))
       (let ((code (string-split ?str #\newline)))
         (Remember this this 'pageid ?p)
@@ -106,9 +106,9 @@
 (When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (let* ((margin (- (/ 4 5))) (dx (/ 17 5)) (dy (/ 25.7 5))
            (emargin (- (/ 2 5))) (edy1 (/ 9 5)) (edy2 (/ 23.7 5)) (edx (/ 15 5)))
-      (Wish-derived this this 'has-region-from-tag 
+      (Wish this 'has-region-from-tag 
        `(outline ,margin ,margin ,dx ,margin ,margin ,dy ,dx ,dy))
-      (Wish-derived this this 'has-region-from-tag-unrotated
+      (Wish this 'has-region-from-tag-unrotated
        `(editor ,emargin ,edy1 ,edx ,edy1 ,emargin ,edy2 ,edx ,edy2))))
 
 ; x and y are lower left corner in aab. rotation is left to the caller.

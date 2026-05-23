@@ -37,5 +37,5 @@
        (,?p (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc))
        (,?p (page rotation) ,?rotation))
  do (let* ((mid (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5)))
-           (center (vec->ints (vec-add mid (vec-from-to ?ulhc ?llhc)))))
+           (center (vec->ints (vec-add (cons 10 10) (vec-add mid (vec-from-to ?ulhc ?llhc))))))
       (draw-text-centered ?str center ?rotation)))

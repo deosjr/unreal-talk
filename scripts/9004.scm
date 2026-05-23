@@ -20,7 +20,7 @@
        (,?p (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
  do (let ((region (region-from-tag ?dx1 ?dy1 ?dx2 ?dy2 ?dx3 ?dy3 ?dx4 ?dy4
                                    ?ulhc ?urhc ?llhc ?lrhc)))
-      (Claim-derived this ?p 'has-region (cons ?region region))))
+      (Claim ?p 'has-region (cons ?region region))))
 
 (When ((,?someone wishes (,?p has-region-from-tag-unrotated
   (,?region ,?dx1 ,?dy1 ,?dx2 ,?dy2 ,?dx3 ,?dy3 ,?dx4 ,?dy4)))
@@ -31,4 +31,4 @@
            (ulhc (car region)) (urhc (cadr region))
            (llhc (caddr region)) (lrhc (cadddr region))
            (aabb-pts (rotate-rect ulhc urhc llhc lrhc ?rotation)))
-        (Claim-derived this ?p 'has-region (cons ?region (cons ?rotation aabb-pts)))))
+        (Claim ?p 'has-region (cons ?region (cons ?rotation aabb-pts)))))

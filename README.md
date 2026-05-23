@@ -12,7 +12,7 @@ place before `make run` will succeed.
 ### 1. Toolchain prerequisites
 
 ```sh
-brew install go guile pkg-config opencv cmake
+brew install go guile guile-gnutls pkg-config opencv cmake
 ```
 
 - **go** &mdash; main-binary toolchain. `go.mod` pins module mode; the
@@ -21,6 +21,10 @@ brew install go guile pkg-config opencv cmake
 - **guile** &mdash; provides `libguile` (linked into the Go binary via
   cgo) and `guile-config`, which the Makefile shells out to for
   `CGO_CFLAGS` / `CGO_LDFLAGS`.
+- **guile-gnutls** &mdash; Guile bindings for GnuTLS. Required for the
+  HTTPS fetches in `webclient.scm`; without it, `(web client)`'s
+  HTTPS path throws `gnutls-not-available` in a background thread and
+  pages that fetch from the web stay stuck on LOADING.
 - **pkg-config** &mdash; resolves OpenCV's compile and link flags for
   the C++ wrapper.
 - **opencv** &mdash; large install (~1 GB after deps). Provides both
@@ -83,6 +87,31 @@ driver level (Logitech G HUB &rarr; Camera Settings &rarr; Resolution,
 or your camera's equivalent) to the value you'll calibrate at, and
 leave it there. The default this codebase expects is **1280&times;720**.
 
+### 5. HTTPS and Guile module paths
+
+HTTPS fetches in `webclient.scm` shell out to **`curl`** rather than
+going through Guile's `(web client)` &rarr; `(gnutls)` path. Three
+reasons it's painful to use Guile-side HTTPS on macOS:
+
+1. Homebrew installs Guile site modules (including `guile-gnutls`)
+   under `/opt/homebrew/share/guile/site/3.0`, but the Guile runtime
+   embedded into `./main` uses Guile's compiled-in default load path,
+   which only sees its own Cellar. The Makefile's `run` target works
+   around this by exporting `GUILE_LOAD_PATH`, `GUILE_LOAD_COMPILED_PATH`,
+   and `GUILE_SYSTEM_EXTENSIONS_PATH` &mdash; if you ever do want
+   Guile-side HTTPS, those env vars at the top of the Makefile are
+   what you'd tweak.
+2. GnuTLS doesn't read the macOS Keychain, so even with `guile-gnutls`
+   loaded, certificate validation fails with `signer-not-found`.
+3. `(web client)` doesn't expose any public hook for setting a custom
+   trust file, so configuring a CA bundle requires monkey-patching.
+
+`curl` sidesteps all of that. It's preinstalled on macOS, uses the
+system Keychain (or its own CA bundle), and handles redirects via
+`-L`. We pay for it with a `fork`/`exec` per fetch &mdash; fine for
+infrequent wiki lookups, would be worth reconsidering for high-rate
+use.
+
 ## Running
 
 ### Calibrate (one-time, per camera/projector setup)
@@ -128,6 +157,7 @@ running multiple RealTalk instances.
 
 ## Log
 
+* 23-05-2026: clean up nested Claims behaviour, removing Claim-derived
 * 02-08-2025: async fetching urls from within Guile Scheme using threads
 * 31-07-2025: datalog inefficiency starts to hurt; multiple rules get slow quite fast
 * 30-07-2025: First live-edit demo is now working

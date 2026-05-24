@@ -10,7 +10,7 @@
 ; basis vectors are x and y of size 1 tag pixel
 ; the ball is one tag pixel in diameter
 ; paddles are 5 tag pixels long
-(When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
+(When ((this (page points) (?ulhc ?urhc ?llhc ?lrhc)))
  do (let* ((scale (/ (vec-length (vec-from-to ?ulhc ?urhc)) 5))
            ; defaults to start the game off, if none are Remembered
            (bx (/ field-width 2))
@@ -32,13 +32,13 @@
 ; otherwise ball is suspended midair waiting for paddle
 ; paddle-velocity is claimed based on virtual and real paddle
 ; pos/vel are relative units defined in pong-area pixel space (51x31)
-(When ((,this scale ,?scale)
-       (,this pong-paddle (left . ,?y1))
-       (,this pong-paddle (right . ,?y2))
-       (,this ball-pos ,?ball-pos)
-       (,this ball-vel ,?ball-vel)
-       (,this left-paddle-y ,?lefty)
-       (,this right-paddle-y ,?righty))
+(When ((this scale ?scale)
+       (this pong-paddle (left . ?y1))
+       (this pong-paddle (right . ?y2))
+       (this ball-pos ?ball-pos)
+       (this ball-vel ?ball-vel)
+       (this left-paddle-y ?lefty)
+       (this right-paddle-y ?righty))
  do (let* ((newpos (vec-add ?ball-pos ?ball-vel))
            (newx (car newpos))
            (newy (cdr newpos)))
@@ -53,16 +53,16 @@
         (Remember this this 'ball-pos newpos))
 ))
 
-(When ((,this pong-paddle (left . ,?attractorY))
-       (,this left-paddle-y ,?paddleY))
+(When ((this pong-paddle (left . ?attractorY))
+       (this left-paddle-y ?paddleY))
  do
 ; todo: update paddle velocity based on previous
 (let ((y (inexact->exact (round ?attractorY))))
   (Remember this this 'left-paddle-y y))
 )
 
-(When ((,this pong-paddle (right . ,?attractorY))
-       (,this right-paddle-y ,?paddleY))
+(When ((this pong-paddle (right . ?attractorY))
+       (this right-paddle-y ?paddleY))
  do
 ; todo: update paddle velocity based on previous
 (let ((y (inexact->exact (round ?attractorY))))
@@ -70,11 +70,11 @@
 )
 
 ; draw _last_ iteration updates to projection
-(When ((,this has-region (pong ,?rotation ,?ulhc ,?urhc ,?llhc ,?lrhc))
-       (,this scale ,?scale)
-       (,this ball-pos ,?ball-pos)
-       (,this left-paddle-y ,?lefty)
-       (,this right-paddle-y ,?righty))
+(When ((this has-region (pong ?rotation ?ulhc ?urhc ?llhc ?lrhc))
+       (this scale ?scale)
+       (this ball-pos ?ball-pos)
+       (this left-paddle-y ?lefty)
+       (this right-paddle-y ?righty))
  do (let* ((center (vec->ints (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5))))
            (cx (car center)) (cy (cdr center))
            (ball (vec->ints (vec-add ?ulhc ?ball-pos)))

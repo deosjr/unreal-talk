@@ -3,7 +3,7 @@
 (define (fmod x y)
   (- x (* y (floor (/ x y)))))
 
-(When ((,this (page rotation) ,?rotation))
+(When ((this (page rotation) ?rotation))
  do (let* ((h (/ ?rotation 60.0))
            (c 1.0)
            (x (* c (- 1 (abs (- (fmod h 2) 1)))))

@@ -130,6 +130,15 @@
 ; So the When macro never executes the body directly — it just packages
 ; the body for later application during fixpoint iteration.
 ;
+; Condition surface syntax: a small DSL where
+;   ?var          -> a logic variable (matched/bound by minikanren)
+;   this          -> the page-id Scheme binding (runtime value)
+;   anything else -> a literal datum (used as the datalog attr or as
+;                    a literal structural component of entity/value)
+; No commas. The macro inserts the unquotes that dl-findo's internal
+; quasiquote needs. The body, in contrast, is plain Scheme — logic
+; vars there are just lexical bindings introduced by the rule lambda.
+;
 ; A few subtleties:
 ;
 ; * Logic variables (`?x`, `?p`, ...) are not legal Scheme identifiers,
@@ -151,14 +160,22 @@
 ;   the same identifier — and so the lambda binding captures every body
 ;   reference.
 ;
-; The xform pass below does all of this in one walk:
-;   ?var          -> its assigned gensym
-;   (Claim ...)   -> (derived-claim! this ...)   ; lives one fixpoint
-;   (Wish  ...)   -> (derived-wish!  this ...)
-;   (When  ...)   -> compile-time error (nested rules' lifecycle is
-;                    not designed)
-;   other symbol  -> re-anchored to user's stx
-;   pair          -> recurse on car and cdr
+; Two walkers do the work:
+;
+;   xform-cond (conditions):
+;     ?var          -> (unquote <its-gensym>)
+;     this          -> (unquote this)
+;     other symbol  -> re-anchored to user's stx (literal)
+;     pair          -> recurse on car and cdr
+;
+;   xform (body):
+;     ?var          -> its assigned gensym (bare — it's a lexical ref)
+;     (Claim ...)   -> (derived-claim! this ...)   ; lives one fixpoint
+;     (Wish  ...)   -> (derived-wish!  this ...)
+;     (When  ...)   -> compile-time error (nested rules' lifecycle is
+;                      not designed)
+;     other symbol  -> re-anchored to user's stx
+;     pair          -> recurse on car and cdr
 ; ----------------------------------------------------------------------
 (define-syntax When
   (lambda (stx)
@@ -199,6 +216,26 @@
          (syntax-violation 'When "nested When is not supported" stx))
         (else (cons (recur (car datum)) (recur (cdr datum))))))
 
+    ; Like xform but for condition triples. Conditions are eventually
+    ; quasi-quoted by dl-findo, so any value we want pulled from scope
+    ; (logic vars and `this`) needs to be wrapped in (unquote ...) here.
+    ; Bare symbols stay literal — they're the datalog attr keys and the
+    ; literal structural skeleton around bound positions.
+    (define (xform-cond datum sym->gen)
+      (define (recur d) (xform-cond d sym->gen))
+      (define (here sym) (datum->syntax stx sym))
+      (cond
+        ((logic-var? datum)
+         (let ((p (assq datum sym->gen)))
+           (if p
+               ; build (unquote <gen>) as a 2-element list
+               (list (here 'unquote) (cdr p))
+               (here datum))))
+        ((eq? datum 'this)
+         (list (here 'unquote) (here 'this)))
+        ((not (pair? datum)) (here datum))
+        (else (cons (recur (car datum)) (recur (cdr datum))))))
+
     (syntax-case stx (do)
       ((_ ((cx condition cy) ...) do statement ...)
        (with-syntax ((this (datum->syntax stx 'this)))
@@ -211,7 +248,7 @@
                 (vars  (collect-logic-vars (cons conds body)))
                 (gens  (generate-temporaries vars))
                 (sym->gen (map cons vars gens))
-                (conds* (xform conds sym->gen))
+                (conds* (xform-cond conds sym->gen))
                 (body*  (xform body  sym->gen))
                 ; Semi-naive: extract the attr from each cond (the middle
                 ; element of the user's (cx condition cy) triple). If any

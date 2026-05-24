@@ -1,8 +1,8 @@
 (Claim this 'hand 'left)
 
-(When ((,?p hand right)
-       (,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc))
-       (,?p (page points) (,?pulhc ,?purhc ,?pllhc ,?plrhc)))
+(When ((?p hand right)
+       (this (page points) (?ulhc ?urhc ?llhc ?lrhc))
+       (?p (page points) (?pulhc ?purhc ?pllhc ?plrhc)))
  do (let* ((left-mid (vec-add ?ulhc (vec-mul (vec-from-to ?lrhc ?ulhc) (/ 2 5))))
            (left-midx (inexact->exact (round (car left-mid)))) (left-midy (inexact->exact (round (cdr left-mid))))
            (right-mid (vec-add ?pulhc (vec-mul (vec-from-to ?plrhc ?pulhc) (/ 2 5))))
@@ -15,8 +15,8 @@
 ; take a different p-q sized region in projection space
 ; copy resized webcam region to that region (without mask?)
 ; NOTE: region in webcam space not guaranteed to be axis-aligned anymore!
-(When ((,?id selection-rect (,?p . ,?q))
-       (,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
+(When ((?id selection-rect (?p . ?q))
+       (this (page points) (?ulhc ?urhc ?llhc ?lrhc)))
  do (let ((proj-pts (bytevector->pointer (points->bytevector ?p ?q)))
           (out-pts (bytevector->pointer (make-bytevector (* 8 2)))))
       (perspective-transform proj-pts 2 projection->webcam out-pts)

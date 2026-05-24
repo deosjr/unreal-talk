@@ -8,7 +8,7 @@
 (define consMW 0)
 (define prodMW 0)
 
-(When ((time now ,?t))
+(When ((time now ?t))
  do (Claim this 'total-mw-consumption consMW)
     (Claim this 'total-mw-production prodMW)
     (Wish this 'subtitled (format #f "prod/cons: ~d/~d MW" prodMW consMW))
@@ -25,14 +25,14 @@
     (set! df newdf)
     (set! freq newfreq)))
 
-(When ((,?someone generates ,?mw))
+(When ((?someone generates ?mw))
  do (Wish ?someone 'update-prod-mw ?mw))
 
-(When ((,this wishes (,?someone update-prod-mw ,?mw)))
+(When ((this wishes (?someone update-prod-mw ?mw)))
  do (set! prodMW (+ prodMW ?mw)))
 
-(When ((,?someone consumes ,?mw))
+(When ((?someone consumes ?mw))
  do (Wish ?someone 'update-cons-mw ?mw))
 
-(When ((,this wishes (,?someone update-cons-mw ,?mw)))
+(When ((this wishes (?someone update-cons-mw ?mw)))
  do (set! consMW (+ consMW ?mw)))

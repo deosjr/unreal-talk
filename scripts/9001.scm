@@ -27,15 +27,15 @@
     (free-image m)))
 
 ; todo: scale text size with string length to fit bounds
-(When ((,?someone wishes (,?p labeled ,?str))
-       (,?p (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc))
-       (,?p (page rotation) ,?rotation))
+(When ((?someone wishes (?p labeled ?str))
+       (?p (page points) (?ulhc ?urhc ?llhc ?lrhc))
+       (?p (page rotation) ?rotation))
  do (let ((mid (vec->ints (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5)))))
       (draw-text-centered ?str mid ?rotation)))
 
-(When ((,?someone wishes (,?p subtitled ,?str))
-       (,?p (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc))
-       (,?p (page rotation) ,?rotation))
+(When ((?someone wishes (?p subtitled ?str))
+       (?p (page points) (?ulhc ?urhc ?llhc ?lrhc))
+       (?p (page rotation) ?rotation))
  do (let* ((mid (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5)))
            (center (vec->ints (vec-add (cons 10 10) (vec-add mid (vec-from-to ?ulhc ?llhc))))))
       (draw-text-centered ?str center ?rotation)))

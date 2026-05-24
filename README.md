@@ -157,6 +157,7 @@ running multiple RealTalk instances.
 
 ## Log
 
+* 24-05-2026: When conditions no longer need unquote commas
 * 24-05-2026: semi-naive evaluation in datalog speeds things up a lot
 * 23-05-2026: clean up nested Claims behaviour, removing Claim-derived
 * 02-08-2025: async fetching urls from within Guile Scheme using threads

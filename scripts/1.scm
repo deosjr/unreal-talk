@@ -9,18 +9,18 @@
 (define code-under-edit '())
 (define font-height 10) ; todo: make relative to tag size
 
-(When ((,this line-num ,?line-num) ; from Remember
-       (,this cursor-x ,?x)
-       (,this pageid ,?id)
-       (,this mode ,?mode)
-       (,this code-under-edit ,?code))
+(When ((this line-num ?line-num) ; from Remember
+       (this cursor-x ?x)
+       (this pageid ?id)
+       (this mode ?mode)
+       (this code-under-edit ?code))
  do (set! line-num ?line-num)
     (set! cursor-x ?x)
     (set! pageid ?id)
     (set! mode ?mode)
     (set! code-under-edit ?code))
 
-(When ((key down ,?k))
+(When ((key down ?k))
  do (if (eq? mode 'command)
         (command-mode ?k)
         (insert-mode ?k)))
@@ -90,8 +90,8 @@
     (move-cursor-right)
     (Remember this this 'code-under-edit code-under-edit)))
 
-(When ((,this points-at ,?p)
-       (,?p (page code) ,?str))
+(When ((this points-at ?p)
+       (?p (page code) ?str))
  do (Claim this 'editing ?p)
     (if (not (= pageid ?p))
       (let ((code (string-split ?str #\newline)))
@@ -103,7 +103,7 @@
 
 ; inner dimensions of 9x9 tag at 1cm per pixel: 5x5cm. a4 in cm: 21 x 29.7
 ; tag printed with 2cm margin top and left, editor with margin below tag
-(When ((,this (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
+(When ((this (page points) (?ulhc ?urhc ?llhc ?lrhc)))
  do (let* ((margin (- (/ 4 5))) (dx (/ 17 5)) (dy (/ 25.7 5))
            (emargin (- (/ 2 5))) (edy1 (/ 9 5)) (edy2 (/ 23.7 5)) (edx (/ 15 5)))
       (Wish this 'has-region-from-tag 
@@ -134,8 +134,8 @@
             (loop (cdr lst) (+ y 1))))))))
 
 ; editor is unrotated, i.e. axis-aligned with ulhc at upper left-hand corner
-(When ((,this has-region (editor ,?rotation ,?ulhc ,?urhc ,?llhc ,?lrhc))
-       (,this editing ,?p))
+(When ((this has-region (editor ?rotation ?ulhc ?urhc ?llhc ?lrhc))
+       (this editing ?p))
  do (let* ((center (vec->ints (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5))))
            (cx (car center)) (cy (cdr center))
            (textsize (ft-text-size ft "gh" font-height)) ;gh give upper/lower bounds for line

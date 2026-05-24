@@ -1,9 +1,9 @@
 ; pong paddle
 
 ; paddles self-assign left/right role
-(When ((,?pong has-region (pong ,?rotation ,?ulhc ,?urhc ,?llhc ,?lrhc))
-       (,?pong scale ,?scale)
-       (,this (page points) (,?a ,?b ,?c ,?d)))
+(When ((?pong has-region (pong ?rotation ?ulhc ?urhc ?llhc ?lrhc))
+       (?pong scale ?scale)
+       (this (page points) (?a ?b ?c ?d)))
  do (let* ((center (vec->ints (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5))))
            (cx (car center)) (cy (cdr center))
 ; unrotate paddle tag around pong area center, so we can calculate more easily

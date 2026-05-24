@@ -15,17 +15,17 @@
                                                       (vec-mul dy-vec dy4)))))
     (list new-ulhc new-urhc new-llhc new-lrhc)))
 
-(When ((,?someone wishes (,?p has-region-from-tag
-  (,?region ,?dx1 ,?dy1 ,?dx2 ,?dy2 ,?dx3 ,?dy3 ,?dx4 ,?dy4)))
-       (,?p (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
+(When ((?someone wishes (?p has-region-from-tag
+  (?region ?dx1 ?dy1 ?dx2 ?dy2 ?dx3 ?dy3 ?dx4 ?dy4)))
+       (?p (page points) (?ulhc ?urhc ?llhc ?lrhc)))
  do (let ((region (region-from-tag ?dx1 ?dy1 ?dx2 ?dy2 ?dx3 ?dy3 ?dx4 ?dy4
                                    ?ulhc ?urhc ?llhc ?lrhc)))
       (Claim ?p 'has-region (cons ?region region))))
 
-(When ((,?someone wishes (,?p has-region-from-tag-unrotated
-  (,?region ,?dx1 ,?dy1 ,?dx2 ,?dy2 ,?dx3 ,?dy3 ,?dx4 ,?dy4)))
-       (,?p (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc))
-       (,?p (page rotation) ,?rotation)) ; clockwise rotation
+(When ((?someone wishes (?p has-region-from-tag-unrotated
+  (?region ?dx1 ?dy1 ?dx2 ?dy2 ?dx3 ?dy3 ?dx4 ?dy4)))
+       (?p (page points) (?ulhc ?urhc ?llhc ?lrhc))
+       (?p (page rotation) ?rotation)) ; clockwise rotation
  do (let* ((region (region-from-tag ?dx1 ?dy1 ?dx2 ?dy2 ?dx3 ?dy3 ?dx4 ?dy4
                                     ?ulhc ?urhc ?llhc ?lrhc))
            (ulhc (car region)) (urhc (cadr region))

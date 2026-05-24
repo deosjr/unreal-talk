@@ -1,8 +1,8 @@
 (Wish this 'has-whiskers #t)
 
-(When ((,this points-at ,?p)
-       (,?p (page rotation) ,?rotation)
-       (,?p (page points) (,?ulhc ,?urhc ,?llhc ,?lrhc)))
+(When ((this points-at ?p)
+       (?p (page rotation) ?rotation)
+       (?p (page points) (?ulhc ?urhc ?llhc ?lrhc)))
  do (draw-on-page ?ulhc ?urhc ?lrhc ?llhc 0 255 0)
     (let* ((str (number->string ?p))
            (testsize (text-size str 0 1.0 2))

@@ -38,6 +38,15 @@
   (hash-set! (datalog-idb dl) (list entity attr value) #t)
   (dl-update-indices! dl (list entity attr value)))
 
+; Semi-naive bookkeeping: every fact added to the indices pushes its attr
+; into *delta-attrs* for the current iteration. The fixpoint loop reads
+; *delta-attrs* at the end of iteration k to decide which rules to
+; re-evaluate in iteration k+1 — rules whose body attrs don't intersect
+; delta are guaranteed to produce no new outputs and can be skipped.
+(define *delta-attrs* (make-hash-table))
+(define (reset-delta-attrs!)
+  (set! *delta-attrs* (make-hash-table)))
+
 (define (dl-update-indices! dl tuple)
    (let ((entity (car tuple))
          (attr (cadr tuple))
@@ -52,7 +61,8 @@
        (if m (hash-set! m tuple #t)
          (let ((new (make-hash-table)))
            (hash-set! idx-attr attr new)
-           (hash-set! new tuple #t))))))
+           (hash-set! new tuple #t))))
+     (hash-set! *delta-attrs* attr #t)))
 
 (define-syntax dl-record!
    (syntax-rules ()
@@ -121,27 +131,68 @@
             (gens (generate-temporaries vars))
             (sym->gen (map cons vars gens))
             (replaced-head (replace-symbols head-datum sym->gen))
-            (replaced-body (replace-symbols body-datums sym->gen)))
+            (replaced-body (replace-symbols body-datums sym->gen))
+            ; The attr in each body cond is the *first* element (the
+            ; relation name in dl-rule! syntax). If any is a logic var
+            ; we don't know what it'll bind to at runtime, so mark the
+            ; whole rule as 'any (always-eligible).
+            (body-attrs (syntax->datum #'(body ...)))
+            (any-var? (let loop ((as body-attrs))
+                        (cond ((null? as) #f)
+                              ((symbol-with-question-mark? (car as)) #t)
+                              (else (loop (cdr as))))))
+            (rule-attrs-datum (if any-var? 'any body-attrs))
+            ; Wrap as syntax so the #, splice produces a real syntax
+            ; object (otherwise the expander complains about raw
+            ; symbols leaking into the macro output).
+            (rule-attrs (datum->syntax stx rule-attrs-datum)))
        #`(dl-assert-rule! dl (fresh-vars #,numvars
            (lambda (q #,@gens)
              (conj (equalo q `#,replaced-head)
-                   (dl-findo dl #,replaced-body) )))))))))
+                   (dl-findo dl #,replaced-body) ))) '#,rule-attrs))))))
 
-(define (dl-assert-rule! dl rule)
-  (hash-set! (datalog-rdb dl) rule #t))
+; Store rule -> attrs (list of attrs the body conditions match on, or
+; the symbol 'any when at least one body condition has an unknown attr
+; — e.g. a logic-variable in the attr position). Semi-naive uses this
+; to skip rules whose preconditions can't have changed.
+(define (dl-assert-rule! dl rule attrs)
+  (hash-set! (datalog-rdb dl) rule attrs))
+
+(define (any-in-delta? attrs delta)
+  (let loop ((as attrs))
+    (cond ((null? as) #f)
+          ((hash-ref delta (car as) #f) #t)
+          (else (loop (cdr as))))))
+
+(define (rules-to-evaluate dl prev-delta)
+  (if (not prev-delta)
+      (hashtable-keys (datalog-rdb dl))
+      (let ((eligible '()))
+        (hash-for-each
+          (lambda (rule attrs)
+            (when (or (eq? attrs 'any)
+                      (any-in-delta? attrs prev-delta))
+              (set! eligible (cons rule eligible))))
+          (datalog-rdb dl))
+        eligible)))
 
 (define (dl-fixpoint! dl)
   (for-each (lambda (fact) (dl-retract! dl fact)) (hashtable-keys (datalog-idb dl)))
   (set-datalog-idb! dl (make-hash-table))
-  (dl-fixpoint-iterate dl))
+  (reset-delta-attrs!)
+  (dl-fixpoint-iterate dl #f))
 
-(define (dl-fixpoint-iterate dl)
-  (let* ((facts (par-map (lambda (rule) (dl-apply-rule dl rule)) (hashtable-keys (datalog-rdb dl))))
-         (factset (foldl (lambda (x y) (set-extend! y x)) facts (make-hash-table)))
-         (new (hashtable-keys (set-difference factset (datalog-idb dl)))))
-    (set-extend! (datalog-idb dl) new)
-    (for-each (lambda (fact) (dl-update-indices! dl fact)) new)
-    (if (not (null? new)) (dl-fixpoint-iterate dl))))
+(define (dl-fixpoint-iterate dl prev-delta)
+  (let ((rules (rules-to-evaluate dl prev-delta)))
+    (if (null? rules) #t
+        (begin
+          (reset-delta-attrs!)   ; this iter's deltas accumulate here
+          (let* ((facts (par-map (lambda (rule) (dl-apply-rule dl rule)) rules))
+                 (factset (foldl (lambda (x y) (set-extend! y x)) facts (make-hash-table)))
+                 (new (hashtable-keys (set-difference factset (datalog-idb dl)))))
+            (set-extend! (datalog-idb dl) new)
+            (for-each (lambda (fact) (dl-update-indices! dl fact)) new)
+            (if (not (null? new)) (dl-fixpoint-iterate dl *delta-attrs*)))))))
 
 (define (dl-apply-rule dl rule)
   (dl-find rule))

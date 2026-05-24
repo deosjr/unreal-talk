@@ -157,6 +157,7 @@ running multiple RealTalk instances.
 
 ## Log
 
+* 24-05-2026: semi-naive evaluation in datalog speeds things up a lot
 * 23-05-2026: clean up nested Claims behaviour, removing Claim-derived
 * 02-08-2025: async fetching urls from within Guile Scheme using threads
 * 31-07-2025: datalog inefficiency starts to hurt; multiple rules get slow quite fast

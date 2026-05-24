@@ -212,7 +212,23 @@
                 (gens  (generate-temporaries vars))
                 (sym->gen (map cons vars gens))
                 (conds* (xform conds sym->gen))
-                (body*  (xform body  sym->gen)))
+                (body*  (xform body  sym->gen))
+                ; Semi-naive: extract the attr from each cond (the middle
+                ; element of the user's (cx condition cy) triple). If any
+                ; is a logic-var we can't predict at expand time which
+                ; attrs the rule depends on — mark as 'any so the rule is
+                ; always eligible.
+                (body-attrs (map cadr conds))
+                (any-var? (let loop ((as body-attrs))
+                            (cond ((null? as) #f)
+                                  ((logic-var? (car as)) #t)
+                                  (else (loop (cdr as))))))
+                (rule-attrs-datum (if any-var? 'any body-attrs))
+                ; Wrap the literal in syntax anchored at stx so the
+                ; template's #, splice gets a proper syntax object, not
+                ; a raw datum (which the expander would reject as
+                ; "raw symbol in macro output").
+                (rule-attrs (datum->syntax stx rule-attrs-datum)))
            #`(let* ((code (lambda (this #,@gens) #,@body*))
                     (code-name (gensym))
                     (rule (fresh-vars #,(+ 1 (length vars))
@@ -222,7 +238,7 @@
                                     (dl-findo (get-dl) #,conds*))))))
                (hash-set! *rule-procs* code-name code)
                (dl-assert! (get-dl) this 'rules rule)
-               (dl-assert-rule! (get-dl) rule))))))))
+               (dl-assert-rule! (get-dl) rule '#,rule-attrs))))))))
 
 ; Used by the When macro to implement Claim/Wish *inside* a rule body.
 ; Mirror of Claim/Wish but routed through dl-assert-derived! so writes
@@ -238,25 +254,33 @@
 (define (derived-wish! this id attr value)
   (dl-assert-derived! (get-dl) this 'wishes (list id attr value)))
 
-; redefine dl-fixpoint! injecting code execution as result of rules
+; redefine dl-fixpoint! injecting code execution as result of rules.
+; Semi-naive: only re-evaluate rules whose body attrs intersect with
+; the deltas of the previous iteration. See datalog.scm for the
+; bookkeeping (*delta-attrs*, rules-to-evaluate).
 (define (dl-fixpoint! dl)
   (for-each (lambda (fact) (dl-retract! dl fact)) (hashtable-keys (datalog-idb dl)))
   (set-datalog-idb! dl (make-hash-table))
-  (dl-fixpoint-iterate dl))
+  (reset-delta-attrs!)
+  (dl-fixpoint-iterate dl #f))
 
-(define (dl-fixpoint-iterate dl)
-  (let* ((facts (par-map (lambda (rule) (dl-apply-rule dl rule)) (hashtable-keys (datalog-rdb dl))))
-         (factset (foldl (lambda (x y) (set-extend! y x)) facts (make-hash-table)))
-         (new (hashtable-keys (set-difference factset (datalog-idb dl)))))
-    (set-extend! (datalog-idb dl) new)
-    (for-each (lambda (fact) (dl-update-indices! dl fact)) new)
-    ; result of dl_apply_rule should be a tuple (this 'code (proc . args))
-    (for-each (lambda (c)
-      (let ((this (car c))
-            (proc (caaddr c))
-            (args (cdaddr c)))
-         (apply (hash-ref *rule-procs* proc #f) this args))) new)
-    (if (not (null? new)) (dl-fixpoint-iterate dl))))
+(define (dl-fixpoint-iterate dl prev-delta)
+  (let ((rules (rules-to-evaluate dl prev-delta)))
+    (if (null? rules) #t
+        (begin
+          (reset-delta-attrs!)
+          (let* ((facts (par-map (lambda (rule) (dl-apply-rule dl rule)) rules))
+                 (factset (foldl (lambda (x y) (set-extend! y x)) facts (make-hash-table)))
+                 (new (hashtable-keys (set-difference factset (datalog-idb dl)))))
+            (set-extend! (datalog-idb dl) new)
+            (for-each (lambda (fact) (dl-update-indices! dl fact)) new)
+            ; result of dl_apply_rule should be a tuple (this 'code (proc . args))
+            (for-each (lambda (c)
+              (let ((this (car c))
+                    (proc (caaddr c))
+                    (args (cdaddr c)))
+                 (apply (hash-ref *rule-procs* proc #f) this args))) new)
+            (if (not (null? new)) (dl-fixpoint-iterate dl *delta-attrs*)))))))
 
 (define (make-page-id) (dl-record dl 'page))
 

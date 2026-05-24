@@ -10,12 +10,20 @@
       (Wish this 'has-region-from-tag-unrotated
        `(wiki ,margin 0 ,dx 0 ,margin ,dy ,dx ,dy))))
 
+; SXML elements look like (tag (@ attrs...) children...). For inline
+; styling tags we want their text content. last-pair returns the last
+; child cell; recurse on its car so that nested wrappers like
+; <a href><i>Canis lupus</i></a> resolve down to the leaf string
+; instead of leaking a list to string->pointer.
+; todo: join all children instead of just the last one
 (define (elem->str x)
-  (if (string? x) x
-    (case (car x)
-      ((b) (car (last-pair x)))
-      ((a) (car (last-pair x)))
-      (else ""))))
+  (cond
+    ((string? x) x)
+    ((pair? x)
+     (case (car x)
+       ((b a i) (elem->str (car (last-pair x))))
+       (else "")))
+    (else "")))
 
 (define (p->str p)
   (string-join (map elem->str (cdr p)) ""))

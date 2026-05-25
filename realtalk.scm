@@ -21,6 +21,10 @@
 
 (define *procs* (make-hash-table))
 (define *rule-procs* (make-hash-table))
+; ids we've already tried to load. Tried-once-and-failed entries stay in
+; the set so we don't re-read a missing file every fixpoint when a tag is
+; on the table — the has-error fact does the messaging.
+(define *load-attempted* (make-hash-table))
 
 (define dl (make-new-datalog))
 (define (get-dl) dl)
@@ -79,6 +83,7 @@
        (page-moved-from-table id)
        (forget-all id))) (get-removed-pages))
   (for-each (lambda (id) (begin
+       (ensure-loaded! id)
        (page-moved-onto-table id)
        (remember-all id))) (get-new-pages))
   (update-memories)
@@ -356,6 +361,14 @@
   (let ((errs (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (,pid has-error ,x) )))))))
     (for-each (lambda (msg) (dl-retract! dl `(,pid has-error ,msg))) errs)))
 
+; Retract any existing (pid (page code) _) facts. Used by load-page and
+; save-page before asserting a new value, so the (page code) attribute
+; behaves like a single-valued slot rather than accumulating every
+; version the page has ever had.
+(define (dl-retract-page-code! pid)
+  (let ((strs (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (,pid (page code) ,x) )))))))
+    (for-each (lambda (str) (dl-retract! dl `(,pid (page code) ,str))) strs)))
+
 ; only run page code when newly in bounds of table.
 ; Wrapped: page top-level code that throws (bad Claim args, undefined
 ; helpers, etc.) must not crash the system. Old proc stays in *procs*
@@ -425,11 +438,46 @@
         (format #f "~a: ~a: ~s" phase key args))
       #f)))
 
+; Empty source we assert as (page code) when the script file is missing
+; so the editor (scripts/1.scm) — whose `When` matches `(?p (page code)
+; ?str)` — can still see the tag and let the user write code from
+; scratch. A save replaces the placeholder via dl-retract-page-code!.
+(define empty-script "")
+
+; Read the script file then compile. Wrapped: a missing scripts/<id>.scm
+; (or an unreadable one) should not crash main.scm and should surface as
+; a has-error fact so 9005 renders "ERR: no script for tag N" at the
+; offending tag. Compile errors are already handled by try-compile-page.
+;
+; Records the attempt in *load-attempted* so ensure-loaded! won't keep
+; re-trying a missing file every fixpoint.
 (define (load-page id)
-  (let* ((str (read-page-code id))
-         (proc (try-compile-page id 'load str)))
-    (dl-assert! (get-dl) id '(page code) str)
-    (if proc (hash-set! *procs* id proc))))
+  (hash-set! *load-attempted* id #t)
+  (dl-retract-page-code! id)
+  (let ((str (catch #t
+               (lambda () (read-page-code id))
+               (lambda (key . args)
+                 (format (current-error-port)
+                         "could not read script for tag ~a: ~s ~s~%" id key args)
+                 (dl-retract-page-errors! id)
+                 (dl-assert! dl id 'has-error
+                   (format #f "no script for tag ~a" id))
+                 ; Assert an empty placeholder so the editor can pick up
+                 ; the page despite the missing file.
+                 (dl-assert! dl id '(page code) empty-script)
+                 #f))))
+    (if str
+      (let ((proc (try-compile-page id 'load str)))
+        (dl-assert! (get-dl) id '(page code) str)
+        (if proc (hash-set! *procs* id proc))))))
+
+; Lazy-load: try once per session per tag id. Subsequent placements of
+; the same tag skip the file read (uses the cached *procs* entry, or
+; respects a previous failed attempt). Called from receive-pages-found
+; when a tag is first seen.
+(define (ensure-loaded! id)
+  (if (not (hash-ref *load-attempted* id #f))
+    (load-page id)))
 
 (define (save-page id code-str)
   (let ((proc (try-compile-page id 'save code-str)))
@@ -439,7 +487,7 @@
     (if proc
       (begin
         (dl-retract-page-errors! id)
-        ; todo: remove previous page code str from db!
+        (dl-retract-page-code! id)
         (dl-assert! (get-dl) id '(page code) code-str)
         (hash-set! *procs* id proc)
         (page-moved-from-table id)

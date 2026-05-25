@@ -159,9 +159,11 @@ running multiple RealTalk instances.
 
 * Layered drawing with rendering outside of fixpoint
 * More diagnostic scripts (see idb facts, who is drawing what, etc)
+* drawing images by url
 
 ## Log
 
+* 25-05-2026: lazy load tags and make new tags editable
 * 25-05-2026: errors in rule bodies / saves / inits no longer crash the program
 * 24-05-2026: When conditions no longer need unquote commas
 * 24-05-2026: semi-naive evaluation in datalog speeds things up a lot

@@ -37,23 +37,7 @@
 (load-background-page 9004)  ; regions
 (load-background-page 9005)  ; error display
 
-; todo: load when first seeing a tag?
-(load-page 1)
-(load-page 2)
-(load-page 3)
-(load-page 4)
-(load-page 6)
-(load-page 7)
-(load-page 8)
-(load-page 9)
-(load-page 10)
-(load-page 11)
-(load-page 12)
-(load-page 13)
-(load-page 14)
-(load-page 15)
-(load-page 16)
-(load-page 17)
-(load-page 18)
-(load-page 19)
-(load-page 20)
+; User-tag scripts (scripts/<id>.scm) are loaded on demand the first
+; time the tag is seen on the table — see ensure-loaded! in realtalk.scm.
+; A missing or unreadable file surfaces as a 'has-error fact (rendered as
+; a subtitle by 9005). One load attempt per tag per session.

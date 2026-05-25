@@ -5,7 +5,7 @@
 (define line-num 0)
 (define cursor-x 0)
 (define pageid -1)
-(define mode 'command) ; command/insert are only valid options atm
+(define mode 'command) ; command/insert/replace
 (define code-under-edit '())
 (define font-height 10) ; todo: make relative to tag size
 
@@ -21,9 +21,9 @@
     (set! code-under-edit ?code))
 
 (When ((key down ?k))
- do (if (eq? mode 'command)
-        (command-mode ?k)
-        (insert-mode ?k)))
+ do (cond ((eq? mode 'command) (command-mode ?k))
+          ((eq? mode 'replace) (replace-mode ?k))
+          (else (insert-mode ?k))))
 
 (define (command-mode key)
   (case key
@@ -34,6 +34,8 @@
     ((120) (delete-under-cursor)) ; x
     ((100) (delete-current-line)) ; d
     ((105) (change-mode 'insert)) ; i
+    ((114) (change-mode 'replace)) ; r  — consumes the next key in replace-mode
+    ((111) (open-below)) ; o  — new line below + insert mode
     ((115) (save-page pageid (string-join code-under-edit "\n"))) ; s
   ))
 
@@ -89,6 +91,35 @@
     (list-set! code-under-edit line-num new-line)
     (move-cursor-right)
     (Remember this this 'code-under-edit code-under-edit)))
+
+(define (replace-mode key)
+  (if (= key 27) ; escape
+    (change-mode 'command)
+    (begin
+      (replace-char key)
+      (change-mode 'command))))
+
+(define (replace-char key)
+  (let* ((c (integer->char key))
+         (line (list-ref code-under-edit line-num))
+         (line-len (string-length line))
+         (left (substring/copy line 0 cursor-x))
+         (right (if (< (+ cursor-x 1) line-len)
+                    (substring/copy line (+ cursor-x 1) line-len)
+                    ""))
+         (new-line (string-append left (string c) right)))
+    (list-set! code-under-edit line-num new-line)
+    (Remember this this 'code-under-edit code-under-edit)))
+
+(define (open-below)
+  (let* ((before (list-head code-under-edit (+ line-num 1)))
+         (after  (list-tail code-under-edit (+ line-num 1)))
+         (new-code (append before '("") after)))
+    (set! code-under-edit new-code)
+    (Remember this this 'code-under-edit new-code)
+    (Remember this this 'line-num (+ line-num 1))
+    (Remember this this 'cursor-x 0)
+    (change-mode 'insert)))
 
 (When ((this points-at ?p)
        (?p (page code) ?str))

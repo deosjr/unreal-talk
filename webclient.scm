@@ -7,6 +7,7 @@
              (sxml simple)
              (ice-9 popen)
              (ice-9 textual-ports)
+             (ice-9 binary-ports)
              (ice-9 threads))
 
 ;; HTTPS via curl. Guile's (web client) uses (gnutls) for TLS, but on
@@ -25,6 +26,20 @@
          (status (close-pipe port)))
     (if (and (zero? (status:exit-val status))
              (not (string-null? body)))
+        body
+        #f)))
+
+;; Bytes variant for binary fetches like images. get-string-all would
+;; treat the payload as UTF-8 and garble any non-text bytes; we drain
+;; the pipe as a bytevector instead. Same exit-status check, returns
+;; #f on error or empty body.
+(define (curl-fetch-bytes url)
+  (let* ((port (open-pipe* OPEN_READ "curl" "-sLf" url))
+         (body (get-bytevector-all port))
+         (status (close-pipe port)))
+    (if (and (zero? (status:exit-val status))
+             (not (eof-object? body))
+             (> (bytevector-length body) 0))
         body
         #f)))
 
@@ -69,6 +84,28 @@
            (thread-safe-set! url (if body (proc body) #f))))
        (lambda (key . args)
          (format #t "fetch failed for ~a: ~a ~a\n" url key args)
+         (thread-safe-set! url #f))))))
+
+;; Binary cousin of get-url-with-proc. Pulls bytes (curl-fetch-bytes),
+;; hands them to PROC, caches PROC's return value. Typical PROC is a
+;; decoder that returns something already-useful (e.g. a cv::Mat
+;; pointer) so the script doesn't re-decode every fixpoint.
+(define (get-url-bytes-with-proc url proc)
+  (let ((res (with-mutex url-mutex
+                (hash-ref url-cache url #f))))
+    (if (not res) (async-fetch-bytes-with-proc url proc))
+    (if (eq? res 'pending) #f res)))
+
+(define (async-fetch-bytes-with-proc url proc)
+  (thread-safe-set! url 'pending)
+  (call-with-new-thread
+   (lambda ()
+     (catch #t
+       (lambda ()
+         (let ((body (curl-fetch-bytes url)))
+           (thread-safe-set! url (if body (proc body) #f))))
+       (lambda (key . args)
+         (format #t "binary fetch failed for ~a: ~a ~a\n" url key args)
          (thread-safe-set! url #f))))))
 
 (define (resolve-uri loc-uri base)

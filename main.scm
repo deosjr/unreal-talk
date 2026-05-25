@@ -35,6 +35,7 @@
 (load-background-page 9002)  ; whiskers
 (load-background-page 9003)  ; highlight
 (load-background-page 9004)  ; regions
+(load-background-page 9005)  ; error display
 
 ; todo: load when first seeing a tag?
 (load-page 1)

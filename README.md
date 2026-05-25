@@ -155,8 +155,14 @@ At some point this might be simplified by only using Guile Scheme, but
 perhaps having Go will be useful when we consider multiple machines
 running multiple RealTalk instances.
 
+## TODOs
+
+* Layered drawing with rendering outside of fixpoint
+* More diagnostic scripts (see idb facts, who is drawing what, etc)
+
 ## Log
 
+* 25-05-2026: errors in rule bodies / saves / inits no longer crash the program
 * 24-05-2026: When conditions no longer need unquote commas
 * 24-05-2026: semi-naive evaluation in datalog speeds things up a lot
 * 23-05-2026: clean up nested Claims behaviour, removing Claim-derived

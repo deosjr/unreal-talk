@@ -312,11 +312,21 @@
             (set-extend! (datalog-idb dl) new)
             (for-each (lambda (fact) (dl-update-indices! dl fact)) new)
             ; result of dl_apply_rule should be a tuple (this 'code (proc . args))
+            ; Each body invocation is wrapped: an exception in one rule
+            ; body must not abort the fixpoint or escape into Go. The
+            ; error is logged and asserted as a derived fact so other
+            ; pages (e.g. an error-display page) can react.
             (for-each (lambda (c)
               (let ((this (car c))
                     (proc (caaddr c))
                     (args (cdaddr c)))
-                 (apply (hash-ref *rule-procs* proc #f) this args))) new)
+                (catch #t
+                  (lambda () (apply (hash-ref *rule-procs* proc #f) this args))
+                  (lambda (key . eargs)
+                    (format (current-error-port)
+                            "rule body error in page ~a: ~s ~s~%" this key eargs)
+                    (dl-assert-derived! dl this 'has-error
+                      (format #f "rule: ~a: ~s" key eargs)))))) new)
             (if (not (null? new)) (dl-fixpoint-iterate dl *delta-attrs*)))))))
 
 (define (make-page-id) (dl-record dl 'page))
@@ -339,13 +349,31 @@
     (if (not (null? points)) (dl-retract! dl `(,pid (page points) ,(car points))))
     (if (not (null? rotation)) (dl-retract! dl `(,pid (page rotation) ,(car rotation))))))
 
-; only run page code when newly in bounds of table
+; Clear any 'has-error facts attached to PID. Used both on successful
+; recompile (to drop a stale error sticking around from a previous bad
+; save) and when a page leaves the table (cleanup).
+(define (dl-retract-page-errors! pid)
+  (let ((errs (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (,pid has-error ,x) )))))))
+    (for-each (lambda (msg) (dl-retract! dl `(,pid has-error ,msg))) errs)))
+
+; only run page code when newly in bounds of table.
+; Wrapped: page top-level code that throws (bad Claim args, undefined
+; helpers, etc.) must not crash the system. Old proc stays in *procs*
+; until next save; error fact is asserted so it can be displayed.
 (define (page-moved-onto-table pid)
-  (execute-page pid))
+  (catch #t
+    (lambda () (execute-page pid))
+    (lambda (key . args)
+      (format (current-error-port)
+              "page init error in page ~a: ~s ~s~%" pid key args)
+      (dl-retract-page-errors! pid)
+      (dl-assert! dl pid 'has-error
+        (format #f "init: ~a: ~s" key args)))))
 
 ; then retract all 'this claims x' and 'this rules x' from dl-db when newly out of table bounds
 (define (page-moved-from-table pid)
   (retract-page-geometry pid)
+  (dl-retract-page-errors! pid)
   (let (( claims (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (,pid claims ,x) ))))))
         ( wishes (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (,pid wishes ,x) ))))))
         ( rules  (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (,pid rules ,x) )))))))
@@ -381,19 +409,41 @@
   (call-with-input-file (format #f "scripts/~d.scm" id) (lambda (port)
     (get-string-all port)) #:encoding "utf-8"))
 
+; Wrap user code in (make-page-code ...) and eval it, returning the
+; resulting page procedure. On any error: log, assert a 'has-error fact
+; on the page (visible to error-display pages), and return #f so the
+; caller can decide what to do (load-page skips; save-page keeps the
+; old proc in place).
+(define (try-compile-page id phase code-str)
+  (catch #t
+    (lambda () (eval-string (format #f "(make-page-code ~a)" code-str)))
+    (lambda (key . args)
+      (format (current-error-port)
+              "~a error in page ~a: ~s ~s~%" phase id key args)
+      (dl-retract-page-errors! id)
+      (dl-assert! dl id 'has-error
+        (format #f "~a: ~a: ~s" phase key args))
+      #f)))
+
 (define (load-page id)
   (let* ((str (read-page-code id))
-         (proc (eval-string (format #f "(make-page-code ~a)" str))))
+         (proc (try-compile-page id 'load str)))
     (dl-assert! (get-dl) id '(page code) str)
-    (hash-set! *procs* id proc)))
+    (if proc (hash-set! *procs* id proc))))
 
 (define (save-page id code-str)
-  (let ((proc (eval-string (format #f "(make-page-code ~a)" code-str))))
-    ; todo: remove previous page code str from db!
-    (dl-assert! (get-dl) id '(page code) code-str)
-    (hash-set! *procs* id proc)
-    (page-moved-from-table id)
-    (page-moved-onto-table id)))
+  (let ((proc (try-compile-page id 'save code-str)))
+    ; If compile failed, leave *procs* and (page code) untouched so the
+    ; page keeps running its last good version while the user fixes the
+    ; new source — has-error was already asserted by try-compile-page.
+    (if proc
+      (begin
+        (dl-retract-page-errors! id)
+        ; todo: remove previous page code str from db!
+        (dl-assert! (get-dl) id '(page code) code-str)
+        (hash-set! *procs* id proc)
+        (page-moved-from-table id)
+        (page-moved-onto-table id)))))
 
 ; todo: once a background page is physically present on the table,
 ; it unloads once gone and takes all its effects with it :)

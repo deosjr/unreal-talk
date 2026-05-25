@@ -163,6 +163,7 @@ running multiple RealTalk instances.
 
 ## Log
 
+* 25-05-2026: EAV index for datalog speeds things up even more
 * 25-05-2026: lazy load tags and make new tags editable
 * 25-05-2026: errors in rule bodies / saves / inits no longer crash the program
 * 24-05-2026: When conditions no longer need unquote commas

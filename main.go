@@ -59,6 +59,8 @@ func main() {
 
 	img := gocv.NewMat()
 	defer img.Close()
+	debugImg := gocv.NewMat()
+	defer debugImg.Close()
 	// calibration pattern fullscreen fills projector dimensions
 	// projection fullscreen should match those dimensions!
 	x, y := cr.ProjectionDimensions.X, cr.ProjectionDimensions.Y
@@ -96,7 +98,7 @@ Loop:
 		start := time.Now()
 		keyDown := -1
 		ch := make(chan []pageGeometry, 1)
-		go aprilTagDetection(detector, webcam, img, homography, x, y, ch)
+		go aprilTagDetection(detector, webcam, img, debugImg, homography, x, y, ch)
 		for {
 			select {
 			case pgs := <-ch:
@@ -115,7 +117,7 @@ Loop:
 				fmt.Printf("%v\t%v\t%v\n", time_detect.Round(time.Millisecond), time_scm.Round(time.Millisecond), tagids)
 
 				gocv.Rectangle(&projection, image.Rect(0, 0, x, y), color.RGBA{255,255,255,255}, 2)
-				window.IMShow(img)
+				window.IMShow(debugImg)
 				projector.IMShow(projection)
 				continue Loop
 			default:
@@ -137,13 +139,14 @@ type pageGeometry struct {
 }
 
 // runs in a goroutine because keyboard event listener has to run in main thread
-func aprilTagDetection(detector *C.Detector, webcam *gocv.VideoCapture, img, homography gocv.Mat, x, y int, resch chan []pageGeometry) {
+func aprilTagDetection(detector *C.Detector, webcam *gocv.VideoCapture, img, debugImg, homography gocv.Mat, x, y int, resch chan []pageGeometry) {
 	// todo: use some kind of buffer instead of sampling?
 	// probably better in a separate background process
 	if ok := webcam.Read(&img); !ok || img.Empty() {
 		resch <- nil
 		return
 	}
+	img.CopyTo(&debugImg)
 
 	// Convert to grayscale
 	gray := gocv.NewMat()
@@ -165,7 +168,7 @@ func aprilTagDetection(detector *C.Detector, webcam *gocv.VideoCapture, img, hom
 	ch := make(chan detectionResult, len(slice))
 	for _, d := range slice {
 		go func(d C.Detection) {
-			ch <- parseDetection(img, x, y, homography, d)
+			ch <- parseDetection(debugImg, x, y, homography, d)
 		}(d)
 	}
 	for i:=0; i<len(slice); i++ {
@@ -197,8 +200,6 @@ func parseDetection(img gocv.Mat, x, y int, homography gocv.Mat, d C.Detection) 
 		image.Pt(int(d.corners[3][0]), int(d.corners[3][1])),
 	}
 */
-	// todo: this shows when capturing webcam appearance, but is debug only info!
-	// solution: copy img to debug mat and draw that on debug window?
 	gocv.Circle(&img, center, 5, color.RGBA{0, 255, 0, 0}, 2)
 	gocv.PutText(&img, fmt.Sprintf("ID %d", d.id), center, gocv.FontHersheyPlain, 1.2, color.RGBA{255, 0, 0, 0}, 2)
 	// point order seems to be: LLHC, LRHC, URHC, ULHC, stable through rotation (!)

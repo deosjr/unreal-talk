@@ -56,31 +56,11 @@
  do (Wish this 'has-region-from-tag-unrotated
      `(image 2 0 6 0 2 6 6 6)))
 
-(define (draw-image src rotation ulhc urhc llhc lrhc)
-  (let* ((ulhcx (car ulhc)) (ulhcy (cdr ulhc))
-         (dx (- (car urhc) ulhcx))
-         (dy (- (cdr llhc) ulhcy))
-         (center (vec->ints (vec-add ulhc (vec-mul (vec-from-to ulhc lrhc) 0.5))))
-         (cx (car center)) (cy (cdr center))
-         (minv (rotation-matrix-2d cx cy (- rotation) 1.0))
-         (img (create-image 1280 720 16))   ; 3-channel BGR
-         (mask (create-image 1280 720 0))   ; 1-channel
-         (dest (region img ulhcx ulhcy dx dy)))
-    (resize src dest dx dy 0 0 3)           ; INTER_AREA
-    (draw-rectangle mask ulhcx ulhcy (+ ulhcx dx) (+ ulhcy dy) 255 255 255 -1)
-    (warp-affine img img minv 1280 720)
-    (warp-affine mask mask minv 1280 720)
-    (copy-from-to img projection mask)
-    (free-image img)
-    (free-image mask)
-    (free-image dest)
-    (free-image minv)))
-
 (When ((this has-region (image ?rotation ?ulhc ?urhc ?llhc ?lrhc)))
  do (let* ((image-url (get-url-with-proc (api-url card-name card-set)
                                          extract-large-image))
            (src (and image-url
                      (get-url-bytes-with-proc image-url decode-bytes))))
       (if src
-        (draw-image src ?rotation ?ulhc ?urhc ?llhc ?lrhc)
+        (draw-mat-onto-region src ?rotation ?ulhc ?urhc ?llhc ?lrhc)
         (Wish this 'subtitled (string-append "LOADING " card-name)))))

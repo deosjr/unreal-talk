@@ -152,6 +152,17 @@ func aprilTagDetection(detector *C.Detector, webcam *gocv.VideoCapture, img, deb
 	gray := gocv.NewMat()
 	gocv.CvtColor(img, &gray, gocv.ColorBGRToGray)
 	defer gray.Close()
+
+	// Normalize local contrast before detection. Locked exposure means a
+	// global lighting shift compresses the black/white gap inside each tag
+	// until bits misclassify and the tag drops out. CLAHE equalizes the
+	// histogram per tile, recovering that gap regardless of overall
+	// brightness. clipLimit caps noise amplification in flat regions; tile
+	// size should be roughly the tag size in pixels.
+	clahe := gocv.NewCLAHEWithParams(2.0, image.Pt(8, 8))
+	defer clahe.Close()
+	clahe.Apply(gray, &gray)
+
 	// todo: sometimes helps, sometimes hurts detection ?
 	//gocv.GaussianBlur(gray, &gray, image.Pt(5, 5), 0, 0, gocv.BorderDefault)
 	//gocv.Threshold(gray, &gray, 160, 255, gocv.ThresholdBinary)

@@ -147,40 +147,31 @@
 (define (draw-editor-line img str x y height r g b)
     (ft-put-text ft img (string->pointer str) x y height r g b))  ; draw color to 3-channel img
 
-(define (draw-editor-lines img mask ulhc lrhc char-width line-height r g b)
-  (let* ((ulhcx (car ulhc)) (ulhcy (cdr ulhc))
-         (lrhcx (car lrhc)) (lrhcy (cdr lrhc))
-         (line-y (+ ulhcy (* line-height line-num)))
-         (cx (+ ulhcx (* char-width cursor-x)))
-         (ytotal (- lrhcy ulhcy)))
-    (draw-rectangle img ulhcx ulhcy lrhcx lrhcy 0 0 255 -1)
-    (draw-rectangle img ulhcx line-y lrhcx (+ line-y line-height) 100 100 255 -1)
+; assumes drawing from ULHC (0, 0)
+(define (draw-editor-lines img dx dy char-width line-height r g b)
+  (let* ((line-y (* line-height line-num))
+         (cx (* char-width cursor-x))
+         (ytotal dy))
+    (draw-rectangle img 0 0 dx dy 0 0 255 -1)
+    (draw-rectangle img 0 line-y dy (+ line-y line-height) 100 100 255 -1)
     (draw-rectangle img cx line-y (+ cx char-width) (+ line-y line-height) 150 150 255 -1)
-    (draw-rectangle mask ulhcx ulhcy lrhcx lrhcy 255 255 255 -1)
     (let loop ((lst code-under-edit) (y 1))
       (let ((dy (* y line-height)))
         (if (and (< dy ytotal) (not (null? lst)))
           (let ((line (car lst)))
-            (draw-editor-line img line ulhcx (+ ulhcy dy) font-height 255 255 255)
+            (draw-editor-line img line 0 dy font-height 255 255 255)
             (loop (cdr lst) (+ y 1))))))))
 
 ; editor is unrotated, i.e. axis-aligned with ulhc at upper left-hand corner
 (When ((this has-region (editor ?rotation ?ulhc ?urhc ?llhc ?lrhc))
        (this editing ?p))
- do (let* ((center (vec->ints (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5))))
-           (cx (car center)) (cy (cdr center))
-           (textsize (ft-text-size ft "gh" font-height)) ;gh give upper/lower bounds for line
+ do (let* ((textsize (ft-text-size ft "gh" font-height)) ;gh give upper/lower bounds for line
            ;(charwidth (+ 1 (inexact->exact (round (/ (car textsize) 2))))) ; assumes mono font! also, off-by-one??
            (charwidth (inexact->exact (round (/ (car textsize) 2)))) ; assumes mono font! also, off-by-one??
-           (height (+ (cadr textsize) 8)) ; 8 padding pixels
-           ; m rotates back to axis-aligned with ulhc at upper left hand corner
-           (minv (rotation-matrix-2d cx cy (- ?rotation) 1.0))
-           (img (create-image 1280 720 16)) ; 16 is 3-channel CV8U
-           (mask (create-image 1280 720 0))) ; 0 is 1-channel CV8U
-        (draw-editor-lines img mask ?ulhc ?lrhc charwidth height 255 255 255)
-        (warp-affine img img minv 1280 720)    ; rotate back
-        (warp-affine mask mask minv 1280 720)  ; rotate back
-        (copy-from-to img projection mask)
-        (free-image img)
-        (free-image mask)
-        (free-image minv)))
+           (lineheight (+ (cadr textsize) 8)) ; 8 padding pixels
+           (dx (- (car ?urhc) (car ?ulhc)))
+           (dy (- (cdr ?llhc) (cdr ?ulhc)))
+           (img (create-image dx dy 16))) ; 16 is 3-channel CV8U
+        (draw-editor-lines img dx dy charwidth lineheight 255 255 255)
+        (draw-mat-onto-region img ?rotation ?ulhc ?urhc ?llhc ?lrhc) ; draws and scales the _entire_ image into region
+        (free-image img)))

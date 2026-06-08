@@ -1,4 +1,6 @@
 ; this script was made for a 9x9cm tag in the upper lefthand corner of an A4 paper
+; this is the low-level editor, owning buffer and cursor
+; editing behaviour is editable, like in emacs, through RealTalk
 
 (Wish this 'has-whiskers #t)
 
@@ -6,8 +8,8 @@
 (define cursor-x 0)
 (define pageid -1)
 (define mode 'command) ; command/insert/replace
-(define code-under-edit '())
-(define font-height 10) ; todo: make relative to tag size
+(define buffer '())
+(define font-height 10) ; todo: make relative to tag size (done by scaling draw?)
 
 (When ((this line-num ?line-num) ; from Remember
        (this cursor-x ?x)
@@ -18,108 +20,86 @@
     (set! cursor-x ?x)
     (set! pageid ?id)
     (set! mode ?mode)
-    (set! code-under-edit ?code))
+    (set! buffer ?code))
 
-(When ((key down ?k))
- do (cond ((eq? mode 'command) (command-mode ?k))
-          ((eq? mode 'replace) (replace-mode ?k))
-          (else (insert-mode ?k))))
+(define (remember)
+  (Remember this this 'line-num line-num)
+  (Remember this this 'cursor-x cursor-x)
+  (Remember this this 'mode mode)
+  (Remember this this 'code-under-edit buffer))
 
-(define (command-mode key)
-  (case key
-    ((106) (move-cursor-down)) ; j
-    ((107) (move-cursor-up)) ; k
-    ((104) (move-cursor-left)) ; h
-    ((108) (move-cursor-right)) ; l
-    ((120) (delete-under-cursor)) ; x
-    ((100) (delete-current-line)) ; d
-    ((105) (change-mode 'insert)) ; i
-    ((114) (change-mode 'replace)) ; r  — consumes the next key in replace-mode
-    ((111) (open-below)) ; o  — new line below + insert mode
-    ((115) (save-page pageid (string-join code-under-edit "\n"))) ; s
+(When ((?someone wishes (this edits ?list)))
+ do (for-each edit ?list)
+    (remember))
+
+(define (edit op)
+  (case (car op)
+    ((change-mode) (change-mode (cadr op)))
+    ((start-of-line) (start-of-line))
+    ((end-of-line) (end-of-line))
+    ((forward-char) (forward-char (cadr op)))
+    ((forward-line) (forward-line (cadr op)))
+    ((delete-char) (delete-char (cadr op)))
+    ((insert) (insert (cadr op)))
+    ((new-line) (new-line))
+    ((save) (save))
   ))
 
-(define (change-mode mode)
-  (Remember this this 'mode mode))
+(define (change-mode m)
+  (set! mode m))
 
-(define (move-cursor-down)
-  (if (< line-num (- (length code-under-edit) 1))
-    (Remember this this 'line-num (+ line-num 1))))
+(define (forward-char n)
+  (let ((x (+ cursor-x n))
+        ; NOTE: we can sit at index len, meaning one past end of line!
+        (len (string-length (list-ref buffer line-num))))
+    (if (< x 0) (set! cursor-x 0)
+      (if (> x len) (set! cursor-x len)
+        (set! cursor-x x)))))
 
-(define (move-cursor-up)
-  (if (> line-num 0)
-    (let ((new-num (- line-num 1)))
-      (Remember this this 'line-num new-num))))
+(define (forward-line n)
+  (let ((x (+ line-num n))
+        (len (- (length buffer) 1)))
+    (if (< x 0) (set! line-num 0)
+      (if (> x len) (set! line-num len)
+        (set! line-num x)))))
 
-(define (move-cursor-left)
-  (if (> cursor-x 0)
-    (let ((newx (- cursor-x 1)))
-      (Remember this this 'cursor-x newx))))
+(define (start-of-line)
+  (set! cursor-x 0))
 
-(define (move-cursor-right)
-  (if (< cursor-x (- (string-length (list-ref code-under-edit line-num)) 1))
-    (Remember this this 'cursor-x (+ cursor-x 1))))
+(define (end-of-line)
+  (set! cursor-x (string-length (list-ref buffer line-num))))
 
-(define (delete-under-cursor)
-  (let* ((code-len (length code-under-edit))
-         (line (list-ref code-under-edit line-num))
+; TODO: n other than 1
+(define (delete-char n)
+  (let* ((code-len (length buffer))
+         (line (list-ref buffer line-num))
          (line-len (string-length line)))
   (if (< cursor-x (- line-len 1))
     (let* ((left (substring/copy line 0 cursor-x))
            (right (substring/copy line (+ cursor-x 1) line-len))
            (new-line (string-append left right)))
-      (list-set! code-under-edit line-num new-line)
-      (Remember this this 'code-under-edit code-under-edit)))))
+      (list-set! buffer line-num new-line)))))
 
-(define (delete-current-line)
-  (if (= line-num 0)
-    (set! code-under-edit (cdr code-under-edit))
-    (list-cdr-set! code-under-edit (- line-num 1) (list-tail code-under-edit (+ line-num 1))))
-  (Remember this this 'code-under-edit code-under-edit))
-
-(define (insert-mode key)
-  (if (= key 27) ; escape
-    (change-mode 'command)
-    (insert key)))
-
-(define (insert key)
-  (let* ((c (integer->char key))
-         (line (list-ref code-under-edit line-num))
+(define (insert s)
+  (let* ((line (list-ref buffer line-num))
          (left (substring/copy line 0 cursor-x))
          (right (substring/copy line cursor-x))
-         (new-line (string-append left (string c) right)))
-    (list-set! code-under-edit line-num new-line)
-    (move-cursor-right)
-    (Remember this this 'code-under-edit code-under-edit)))
+         (new-line (string-append left s right)))
+    (list-set! buffer line-num new-line)
+    (forward-char 1)))
 
-(define (replace-mode key)
-  (if (= key 27) ; escape
-    (change-mode 'command)
-    (begin
-      (replace-char key)
-      (change-mode 'command))))
-
-(define (replace-char key)
-  (let* ((c (integer->char key))
-         (line (list-ref code-under-edit line-num))
-         (line-len (string-length line))
+(define (new-line)
+  (let* ((line (list-ref buffer line-num))
          (left (substring/copy line 0 cursor-x))
-         (right (if (< (+ cursor-x 1) line-len)
-                    (substring/copy line (+ cursor-x 1) line-len)
-                    ""))
-         (new-line (string-append left (string c) right)))
-    (list-set! code-under-edit line-num new-line)
-    (Remember this this 'code-under-edit code-under-edit)))
+         (right (substring/copy line cursor-x))
+         (before (list-head buffer line-num))
+         (after (list-tail buffer (+ line-num 1))))
+    (set! buffer (append before (list left right) after))
+    (forward-line 1)
+    (start-of-line)))
 
-(define (open-below)
-  (let* ((before (list-head code-under-edit (+ line-num 1)))
-         (after  (list-tail code-under-edit (+ line-num 1)))
-         (new-code (append before '("") after)))
-    (set! code-under-edit new-code)
-    (Remember this this 'code-under-edit new-code)
-    (Remember this this 'line-num (+ line-num 1))
-    (Remember this this 'cursor-x 0)
-    (change-mode 'insert)))
+(define (save)
+  (save-page pageid (string-join buffer "\n")))
 
 (When ((this points-at ?p)
        (?p (page code) ?str))
@@ -155,7 +135,7 @@
     (draw-rectangle img 0 0 dx dy 0 0 255 -1)
     (draw-rectangle img 0 line-y dy (+ line-y line-height) 100 100 255 -1)
     (draw-rectangle img cx line-y (+ cx char-width) (+ line-y line-height) 150 150 255 -1)
-    (let loop ((lst code-under-edit) (y 1))
+    (let loop ((lst buffer) (y 1))
       (let ((dy (* y line-height)))
         (if (and (< dy ytotal) (not (null? lst)))
           (let ((line (car lst)))

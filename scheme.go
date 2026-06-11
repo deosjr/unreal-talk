@@ -15,10 +15,10 @@ func scm_point(p image.Point) C.SCM {
 
 func scm_pageGeometry(pg pageGeometry) C.SCM {
 	id := C.scm_from_int(C.int(pg.id))
-	ulhc :=  scm_point(pg.ulhc)
-	urhc :=  scm_point(pg.urhc)
-	llhc :=  scm_point(pg.llhc)
-	lrhc :=  scm_point(pg.lrhc)
+	ulhc := scm_point(pg.ulhc)
+	urhc := scm_point(pg.urhc)
+	llhc := scm_point(pg.llhc)
+	lrhc := scm_point(pg.lrhc)
 	points := C.scm_list_4(ulhc, urhc, llhc, lrhc)
 	rotation := C.scm_from_double(C.double(pg.rotation))
 	return C.scm_list_3(id, points, rotation)
@@ -51,7 +51,7 @@ func scm_sendPageGeometries(geos []pageGeometry) {
 	defer C.free(unsafe.Pointer(fname))
 	f := C.scm_variable_ref(C.scm_c_lookup(fname))
 	list := C.SCM_EOL
-	for i:=len(geos)-1; i >=0; i-- {
+	for i := len(geos) - 1; i >= 0; i-- {
 		pg := scm_pageGeometry(geos[i])
 		list = C.scm_cons(pg, list)
 	}
@@ -66,8 +66,8 @@ func scm_sendImageInfo(img, proj, m gocv.Mat, x, y int) {
 	defer C.free(unsafe.Pointer(fname))
 	f := C.scm_variable_ref(C.scm_c_lookup(fname))
 	C.scm_call_5(f, C.scm_from_pointer(imgptr, nil),
-                        C.scm_from_pointer(projptr, nil),
-                        C.scm_from_pointer(mptr, nil),
-                        C.scm_from_int(C.int(x)),
-                        C.scm_from_int(C.int(y)))
+		C.scm_from_pointer(projptr, nil),
+		C.scm_from_pointer(mptr, nil),
+		C.scm_from_int(C.int(x)),
+		C.scm_from_int(C.int(y)))
 }

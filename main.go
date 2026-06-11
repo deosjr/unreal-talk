@@ -18,12 +18,17 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"runtime"
 	"sort"
 	"time"
 	"unsafe"
 
 	"gocv.io/x/gocv"
 )
+
+func init() {
+	runtime.LockOSThread()
+}
 
 func main() {
 
@@ -44,12 +49,12 @@ func main() {
 	defer webcam.Close()
 	// todo: doesn't seem to work, at least on my machine with my webcam
 	/*
-	webcam.Set(gocv.VideoCaptureAutoWB, 0.0)
-	webcam.Set(gocv.VideoCaptureAutoFocus, 0.0)
-	webcam.Set(gocv.VideoCaptureAutoExposure, 0.0)
-	webcam.Set(gocv.VideoCaptureWBTemperature, 3000.0) 	// 2800 - 6500 ?
-	webcam.Set(gocv.VideoCaptureFocus, 100.0)		// 0-255 ?
-	webcam.Set(gocv.VideoCaptureExposure, -3.0)		// ?
+		webcam.Set(gocv.VideoCaptureAutoWB, 0.0)
+		webcam.Set(gocv.VideoCaptureAutoFocus, 0.0)
+		webcam.Set(gocv.VideoCaptureAutoExposure, 0.0)
+		webcam.Set(gocv.VideoCaptureWBTemperature, 3000.0) 	// 2800 - 6500 ?
+		webcam.Set(gocv.VideoCaptureFocus, 100.0)		// 0-255 ?
+		webcam.Set(gocv.VideoCaptureExposure, -3.0)		// ?
 	*/
 
 	window := gocv.NewWindow("Webcam")
@@ -71,17 +76,17 @@ func main() {
 	fmt.Println("drag projector screen to projector, then press 'f' to fullscreen")
 	for {
 		if projector.WaitKey(1) == 102 { // f
-		    	projector.SetWindowProperty(gocv.WindowPropertyFullscreen, gocv.WindowFullscreen)
+			projector.SetWindowProperty(gocv.WindowPropertyFullscreen, gocv.WindowFullscreen)
 			break
 		}
 	}
 
-    	homography := gocv.NewMatWithSize(3, 3, gocv.MatTypeCV64F)
-    	for i := 0; i < 3; i++ {
-    	    for j := 0; j < 3; j++ {
-    	    	homography.SetDoubleAt(i, j, cr.Homography[i][j])
-    	    }
-    	}
+	homography := gocv.NewMatWithSize(3, 3, gocv.MatTypeCV64F)
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 3; j++ {
+			homography.SetDoubleAt(i, j, cr.Homography[i][j])
+		}
+	}
 
 	// send the projection pointer to Guile, once.
 	// it should not free it, that's still Go's job
@@ -92,7 +97,7 @@ func main() {
 
 	var time_detect time.Duration
 	var time_scm time.Duration
-	
+
 Loop:
 	for {
 		start := time.Now()
@@ -115,7 +120,7 @@ Loop:
 				}
 				sort.Ints(tagids)
 
-				gocv.Rectangle(&projection, image.Rect(0, 0, x, y), color.RGBA{255,255,255,255}, 2)
+				gocv.Rectangle(&projection, image.Rect(0, 0, x, y), color.RGBA{255, 255, 255, 255}, 2)
 				window.IMShow(debugImg)
 				projector.IMShow(projection)
 				continue Loop
@@ -132,9 +137,9 @@ Loop:
 }
 
 type pageGeometry struct {
-	id int
+	id                     int
 	ulhc, urhc, llhc, lrhc image.Point
-	rotation float64
+	rotation               float64
 }
 
 // runs in a goroutine because keyboard event listener has to run in main thread
@@ -181,7 +186,7 @@ func aprilTagDetection(detector *C.Detector, webcam *gocv.VideoCapture, img, deb
 			ch <- parseDetection(debugImg, x, y, homography, d)
 		}(d)
 	}
-	for i:=0; i<len(slice); i++ {
+	for i := 0; i < len(slice); i++ {
 		result := <-ch
 		if !result.ok {
 			continue
@@ -194,7 +199,7 @@ func aprilTagDetection(detector *C.Detector, webcam *gocv.VideoCapture, img, deb
 
 type detectionResult struct {
 	pageGeo pageGeometry
-	ok	bool
+	ok      bool
 }
 
 func parseDetection(img gocv.Mat, x, y int, homography gocv.Mat, d C.Detection) detectionResult {
@@ -202,14 +207,14 @@ func parseDetection(img gocv.Mat, x, y int, homography gocv.Mat, d C.Detection) 
 	center := image.Pt(int(d.cx), int(d.cy))
 	// The corners of the tag in image pixel coordinates. These always
 	// wrap counter-clock wise around the tag.
-/*
-	points := []image.Point{
-		image.Pt(int(d.corners[0][0]), int(d.corners[0][1])),
-		image.Pt(int(d.corners[1][0]), int(d.corners[1][1])),
-		image.Pt(int(d.corners[2][0]), int(d.corners[2][1])),
-		image.Pt(int(d.corners[3][0]), int(d.corners[3][1])),
-	}
-*/
+	/*
+		points := []image.Point{
+			image.Pt(int(d.corners[0][0]), int(d.corners[0][1])),
+			image.Pt(int(d.corners[1][0]), int(d.corners[1][1])),
+			image.Pt(int(d.corners[2][0]), int(d.corners[2][1])),
+			image.Pt(int(d.corners[3][0]), int(d.corners[3][1])),
+		}
+	*/
 	gocv.Circle(&img, center, 5, color.RGBA{0, 255, 0, 0}, 2)
 	gocv.PutText(&img, fmt.Sprintf("ID %d", d.id), center, gocv.FontHersheyPlain, 1.2, color.RGBA{255, 0, 0, 0}, 2)
 	// point order seems to be: LLHC, LRHC, URHC, ULHC, stable through rotation (!)
@@ -220,15 +225,15 @@ func parseDetection(img gocv.Mat, x, y int, homography gocv.Mat, d C.Detection) 
 	//gocv.Circle(&img, points[3], 5, color.RGBA{255, 0, 0, 0}, 2)
 
 	points2f := []gocv.Point2f{
-		{X:float32(d.corners[0][0]), Y:float32(d.corners[0][1])},
-		{X:float32(d.corners[1][0]), Y:float32(d.corners[1][1])},
-		{X:float32(d.corners[2][0]), Y:float32(d.corners[2][1])},
-		{X:float32(d.corners[3][0]), Y:float32(d.corners[3][1])},
+		{X: float32(d.corners[0][0]), Y: float32(d.corners[0][1])},
+		{X: float32(d.corners[1][0]), Y: float32(d.corners[1][1])},
+		{X: float32(d.corners[2][0]), Y: float32(d.corners[2][1])},
+		{X: float32(d.corners[3][0]), Y: float32(d.corners[3][1])},
 	}
 	pv2f := gocv.NewPoint2fVectorFromPoints(points2f)
 	webcamPoints := gocv.NewMatFromPoint2fVector(pv2f, true)
 	projectionPoints := gocv.NewMat()
-	gocv.PerspectiveTransform(webcamPoints, &projectionPoints, homography)	
+	gocv.PerspectiveTransform(webcamPoints, &projectionPoints, homography)
 	dstPoints := gocv.NewPointVectorFromMat(projectionPoints)
 
 	// only consider tags within the projection boundary
@@ -249,11 +254,11 @@ func parseDetection(img gocv.Mat, x, y int, homography gocv.Mat, d C.Detection) 
 
 	return detectionResult{
 		pageGeo: pageGeometry{
-			id: int(d.id),
-			ulhc: projected[3],
-			urhc: projected[2],
-			llhc: projected[0],
-			lrhc: projected[1],
+			id:       int(d.id),
+			ulhc:     projected[3],
+			urhc:     projected[2],
+			llhc:     projected[0],
+			lrhc:     projected[1],
 			rotation: degrees,
 		},
 		ok: true,

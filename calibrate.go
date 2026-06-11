@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-    "image"
-    "image/color"
+	"image"
+	"image/color"
 	"io"
 	"os"
 	"time"
@@ -13,9 +13,9 @@ import (
 )
 
 type CalibrationResult struct {
-	Homography           [3][3]float64	`json:"homography"`
-	WebcamDimensions     image.Point	`json:"webcam"`
-	ProjectionDimensions image.Point	`json:"projection"`
+	Homography           [3][3]float64 `json:"homography"`
+	WebcamDimensions     image.Point   `json:"webcam"`
+	ProjectionDimensions image.Point   `json:"projection"`
 	// todo: webcam parameters
 }
 
@@ -58,21 +58,21 @@ func calibrate() {
 
 	var projectorPoints []gocv.Point2f
 	for y := 1; y <= patternSize.Y; y++ {
-	    for x := 1; x <= patternSize.X; x++ {
-    	    	projectorPoints = append(projectorPoints, gocv.Point2f{
- 	   		X: float32(x*squareSize),
- 	   		Y: float32(y*squareSize),
- 	   	})
-	    }
+		for x := 1; x <= patternSize.X; x++ {
+			projectorPoints = append(projectorPoints, gocv.Point2f{
+				X: float32(x * squareSize),
+				Y: float32(y * squareSize),
+			})
+		}
 	}
 
 	for {
-		if window.WaitKey(1) == 102 || chesswindow.WaitKey(1) == 102 { 
+		if window.WaitKey(1) == 102 || chesswindow.WaitKey(1) == 102 {
 			break // 'f' to start calibrating: gives time to put chessboard in place
 		}
 	}
-    	chesswindow.SetWindowProperty(gocv.WindowPropertyFullscreen, gocv.WindowFullscreen)
-	time.Sleep(1*time.Second) // one second for fullscreen to properly work
+	chesswindow.SetWindowProperty(gocv.WindowPropertyFullscreen, gocv.WindowFullscreen)
+	time.Sleep(1 * time.Second) // one second for fullscreen to properly work
 
 	var homography gocv.Mat
 	for {
@@ -90,7 +90,7 @@ func calibrate() {
 		if window.WaitKey(1) == 27 {
 			break // ESC to quit
 		}
-		
+
 		corners := gocv.NewMat()
 		defer corners.Close()
 		flags := gocv.CalibCBAdaptiveThresh | gocv.CalibCBExhaustive
@@ -109,10 +109,10 @@ func calibrate() {
 			corners,
 			points,
 			gocv.HomographyMethodRANSAC,
-			3.0, 	// reprojection threshold
-			&mask, 	// output mask
-			2000,	// max iterations,
-			0.995,	// confidence
+			3.0,   // reprojection threshold
+			&mask, // output mask
+			2000,  // max iterations,
+			0.995, // confidence
 		)
 		fmt.Println("Homography matrix:\n", h)
 		homography = h
@@ -125,9 +125,9 @@ func calibrate() {
 	cr.ProjectionDimensions = image.Pt(1280, 720)
 	cr.Homography = [3][3]float64{}
 
-	for i := 0; i<3; i++ {
-		for j := 0; j<3; j++ {
-			cr.Homography[i][j] = homography.GetDoubleAt(i,j);
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 3; j++ {
+			cr.Homography[i][j] = homography.GetDoubleAt(i, j)
 		}
 	}
 

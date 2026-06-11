@@ -1,17 +1,30 @@
+; highlighting means drawing an outline around the tag points
 (When ((?someone wishes (?p highlighted ?color))
        (?p (page points) (?ulhc ?urhc ?llhc ?lrhc)))
- do (let ((r 0) (g 0) (b 0))
-      (case ?color
-        ((red) (set! r 255))
-        ((blue) (set! b 255))
-        ((green) (set! g 255))
-        (else (set! r (car   ?color)) ; assume color is (r g b) list
-              (set! g (cadr  ?color))
-              (set! b (caddr ?color))))
-      (draw-on-page ?ulhc ?urhc ?lrhc ?llhc r g b)))
+ do (let* ((scaling-factor 2.0)
+           (mid (vec->ints (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5))))
+           (ulhc (vec->ints (vec-add mid (vec-mul (vec-from-to mid ?ulhc) scaling-factor))))
+           (urhc (vec->ints (vec-add mid (vec-mul (vec-from-to mid ?urhc) scaling-factor))))
+           (llhc (vec->ints (vec-add mid (vec-mul (vec-from-to mid ?llhc) scaling-factor))))
+           (lrhc (vec->ints (vec-add mid (vec-mul (vec-from-to mid ?lrhc) scaling-factor)))))
+      (draw-outline ?color 2 ulhc urhc llhc lrhc)))
+
+(define (get-color c)
+  (case c
+    ((red) '(255 0 0))
+    ((green) '(0 255 0))
+    ((blue) '(0 0 255))
+    ((white) '(255 255 255))
+    ((black) '(0 0 0))
+    (else c))) ; TODO validate len 3 list of R G B values
+
+(define (draw-outline color width ulhc urhc llhc lrhc)
+  (let* ((c (get-color color))
+         (r (car c)) (g (cadr c)) (b (caddr c)))
+  (draw-line projection (car ulhc) (cdr ulhc) (car urhc) (cdr urhc) r g b width)
+  (draw-line projection (car urhc) (cdr urhc) (car lrhc) (cdr lrhc) r g b width)
+  (draw-line projection (car lrhc) (cdr lrhc) (car llhc) (cdr llhc) r g b width)
+  (draw-line projection (car llhc) (cdr llhc) (car ulhc) (cdr ulhc) r g b width)))
 
 (When ((?p has-region (outline ?ulhc ?urhc ?llhc ?lrhc)))
- do (draw-line projection (car ?ulhc) (cdr ?ulhc) (car ?urhc) (cdr ?urhc) 255 255 255 2)
-    (draw-line projection (car ?urhc) (cdr ?urhc) (car ?lrhc) (cdr ?lrhc) 255 255 255 2)
-    (draw-line projection (car ?lrhc) (cdr ?lrhc) (car ?llhc) (cdr ?llhc) 255 255 255 2)
-    (draw-line projection (car ?llhc) (cdr ?llhc) (car ?ulhc) (cdr ?ulhc) 255 255 255 2))
+ do (draw-outline 'white 2 ?ulhc ?urhc ?llhc ?lrhc))

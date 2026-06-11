@@ -55,7 +55,7 @@ first))
   (substring (cadr (assq 'href (cdr (assq '@ (cdr a))))) 2))
 
 ; can assume axis-aligned region to draw in
-(define (draw-wiki-text sxml rotation ulhc urhc llhc lrhc)
+(define (draw-wiki-text sxml rotation ulhc urhc llhc lrhc claim-func)
   (let* ((font 0) (scale 0.7) (thickness 1) (padding 2)
          (img (create-image 1280 720 16)) ; 16 is 3-channel CV8U
          (msk (create-image 1280 720 0)) ; 0 is 1-channel CV8U
@@ -89,7 +89,7 @@ first))
                 (fill-poly-img img ulhc urhc lrhc llhc 200 100 100)
 		; this claim needs unrotated points!
                 (let ((unrotated (rotate-points-around cx cy (- rotation) ulhc urhc llhc lrhc)))
-                  (Claim this 'wiki-link (cons (find-href elem) unrotated)))))
+                  (claim-func (cons (find-href elem) unrotated)))))
             (put-text img strptr nx ny font scale 255 255 255 thickness)  ; draw color to 3-channel img
             (fill-poly-img msk (cons nx nny) (cons (+ nx width) nny) (cons (+ nx width) ny) (cons nx ny) 255 255 255)
             (loop (cdr lst) (+ i 1) (+ nx width padding) (- ny height) nw))))
@@ -103,9 +103,10 @@ first))
 (When ((?p has-region (wiki ?rotation ?ulhc ?urhc ?llhc ?lrhc))
        (?p (wiki topic) ?topic))
  do (let* ((url (string-append urlpref ?topic))
-           (res (get-url-with-proc url get-first-paragraph)))
+           (res (get-url-with-proc url get-first-paragraph))
+           (claim-func (lambda (data) (Claim this 'wiki-link data))))
       (if res
-        (draw-wiki-text res ?rotation ?ulhc ?urhc ?llhc ?lrhc)
+        (draw-wiki-text res ?rotation ?ulhc ?urhc ?llhc ?lrhc claim-func)
         (Wish this 'subtitled "LOADING"))))
 
 (When ((?p pointer-at (?px . ?py))
@@ -118,7 +119,8 @@ first))
 (When ((?p has-region (wiki ?rotation ?ulhc ?urhc ?llhc ?lrhc))
        (?p points-at-wiki-link ?topic))
  do (let* ((url (string-append urlpref ?topic))
-           (res (get-url-with-proc url get-first-paragraph)))
+           (res (get-url-with-proc url get-first-paragraph))
+           (claim-func (lambda (data) (Claim ?p 'wiki-link data))))
       (if res
-        (draw-wiki-text res ?rotation ?ulhc ?urhc ?llhc ?lrhc)
+        (draw-wiki-text res ?rotation ?ulhc ?urhc ?llhc ?lrhc claim-func)
         (Wish ?p 'subtitled "LOADING"))))

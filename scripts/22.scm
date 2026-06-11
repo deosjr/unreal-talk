@@ -39,6 +39,7 @@
        (time now ?t)
        (?someone claims (?p ?attr ?v))) do
   (check-swap-buffers ?t)
+  (Wish ?someone 'highlighted 'green)
   (set! curr (cons (cons ?attr ?v) curr)))
 
 ; do smth with claims aggregated in previous fixpoint iteration

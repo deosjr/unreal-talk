@@ -214,7 +214,10 @@ void resize(Image* src, Image* dst, int sx, int sy, double fx, double fy, int in
 Image* region(Image* img, int minx, int miny, int width, int height) {
     Image* roi = new Image;
     cv::Rect rect(minx, miny, width, height);
-    roi->mat = cv::Mat(img->mat, rect);
+    cv::Rect clipped = rect & cv::Rect(0, 0, img->mat.cols, img->mat.rows);
+    roi->mat = (clipped.width > 0 && clipped.height > 0)
+                ? cv::Mat(img->mat, clipped)
+                : cv::Mat();
     return roi;
 }
 

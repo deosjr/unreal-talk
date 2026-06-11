@@ -114,7 +114,6 @@ Loop:
 					tagids = append(tagids, tag.id)
 				}
 				sort.Ints(tagids)
-				fmt.Printf("%v\t%v\t%v\n", time_detect.Round(time.Millisecond), time_scm.Round(time.Millisecond), tagids)
 
 				gocv.Rectangle(&projection, image.Rect(0, 0, x, y), color.RGBA{255,255,255,255}, 2)
 				window.IMShow(debugImg)

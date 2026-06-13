@@ -46,6 +46,10 @@ Image* decode_image(const unsigned char* data, int size) {
     return img;
 }
 
+int image_cols(Image* img) { return img->mat.cols; }
+
+int image_rows(Image* img) { return img->mat.rows; }
+
 Image* matrix_invert(Image* img) {
     Image* inv = new Image;
     inv->mat = img->mat.inv();

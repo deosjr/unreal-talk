@@ -26,7 +26,6 @@
     (free-image temp-msk)
     (free-image m)))
 
-; todo: scale text size with string length to fit bounds
 (When ((?someone wishes (?p labeled ?str))
        (?p (page points) (?ulhc ?urhc ?llhc ?lrhc))
        (?p (page rotation) ?rotation))

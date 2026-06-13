@@ -15,9 +15,13 @@
        (Claim ?p 'pointer-at (cons endx endy))))
 
 ; NOTE: this fires for every page, since we can't calculate in the db atm!
+; TODO: perhaps we can have the engine subdivide the projection and assert
+; 'page-in-this-region' facts to narrow things down?
 (When ((?p pointer-at (?px . ?py))
        (?q (page points) (?ulhc ?urhc ?llhc ?lrhc)))
   do (let* ((pts (points->bytevector ?ulhc ?urhc ?lrhc ?llhc))
             (ptr (bytevector->pointer pts))
             (test (point-polygon-test ptr 4 ?px ?py)))
     (if (> test 0) (Claim ?p 'points-at ?q))))
+
+; TODO: pointing at regions

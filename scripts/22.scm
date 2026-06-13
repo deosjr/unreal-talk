@@ -24,7 +24,7 @@
         (let ((line (format #f "~a: ~a" (caar lst) (cdar lst))))
           (ft-put-text ft img (string->pointer line) 0 y font-height 255 255 255)
           (loop (cdr lst) (+ y lineheight)))))
-    (draw-mat-onto-region img rotation ulhc urhc llhc lrhc)
+    (draw-mat-onto-region-opaque img projection rotation ulhc lrhc)
     (free-image img)))
 
 (define (check-swap-buffers t)

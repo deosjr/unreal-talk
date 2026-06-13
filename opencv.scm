@@ -33,6 +33,16 @@
                             #:arg-types (list '* int)
                             #:return-type '*))
 
+(define image-cols
+  (foreign-library-function lib "image_cols"
+                            #:arg-types (list '*)
+                            #:return-type int))
+
+(define image-rows
+  (foreign-library-function lib "image_rows"
+                            #:arg-types (list '*)
+                            #:return-type int))
+
 (define matrix-invert
   (foreign-library-function lib "matrix_invert"
                             #:arg-types (list '*)
@@ -209,26 +219,43 @@
     (free-image m)
     (pts->coords out-pts (length points))))
 
-(define (draw-mat-onto-region src rotation ulhc urhc llhc lrhc)
+(define (draw-image img dst mask)
+  (copy-from-to img dst mask))
+
+(define (free-images . imgs)
+  (for-each (lambda (x) (free-image x)) imgs))
+
+(define (rotate-region-img! img mask ulhc lrhc rotation)
+  (if (not (zero? rotation))
+    (let* ((center (vec->ints (vec-add ulhc (vec-mul (vec-from-to ulhc lrhc) 0.5))))
+           (cx (car center)) (cy (cdr center))
+           (minv (rotation-matrix-2d cx cy (- rotation) 1.0))
+           (w (image-cols img))
+           (h (image-rows img)))
+      (warp-affine img img minv w h)
+      (warp-affine mask mask minv w h)
+      (free-image minv))))
+
+(define (draw-mat-onto-region-opaque src dst rotation ulhc lrhc)
+  (let* ((w (image-cols src)) (h (image-rows src))
+         (mask (create-image w h 0)))
+    (draw-rectangle mask 0 0 w h 255 255 255 -1)
+    (draw-mat-onto-region src dst mask rotation ulhc lrhc)
+    (free-image mask)))
+
+; assumes everything is axis-aligned and needs to be rotated
+(define (draw-mat-onto-region src dst mask rotation ulhc lrhc)
   (let* ((ulhcx (car ulhc)) (ulhcy (cdr ulhc))
-         (dx (- (car urhc) ulhcx))
-         (dy (- (cdr llhc) ulhcy)))
-    (if (zero? rotation)
-      (let ((dest (region projection ulhcx ulhcy dx dy)))
-        (resize src dest dx dy 0 0 3)
-        (free-image dest))
-      (let* ((center (vec->ints (vec-add ulhc (vec-mul (vec-from-to ulhc lrhc) 0.5))))
-             (cx (car center)) (cy (cdr center))
-             (minv (rotation-matrix-2d cx cy (- rotation) 1.0))
-             (img (create-image 1280 720 16))
-             (mask (create-image 1280 720 0))
-             (dest (region img ulhcx ulhcy dx dy)))
-        (resize src dest dx dy 0 0 3)
-        (draw-rectangle mask ulhcx ulhcy (+ ulhcx dx) (+ ulhcy dy) 255 255 255 -1)
-        (warp-affine img img minv 1280 720)
-        (warp-affine mask mask minv 1280 720)
-        (copy-from-to img projection mask)
-        (free-image img)
-        (free-image mask)
-        (free-image dest)
-        (free-image minv)))))
+         (dx (- (car lrhc) ulhcx))
+         (dy (- (cdr lrhc) ulhcy))
+         (dst-w (image-cols dst))
+         (dst-h (image-rows dst)))
+    (let* ((timg (create-image dst-w dst-h 16))
+           (tmask (create-image dst-w dst-h 0))
+           (ri (region timg ulhcx ulhcy dx dy))
+           (rm (region tmask ulhcx ulhcy dx dy)))
+      (resize src ri dx dy 0 0 3)
+      (resize mask rm dx dy 0 0 0)
+      (rotate-region-img! timg tmask ulhc lrhc rotation)
+      (draw-image timg dst tmask)
+      (free-images timg tmask ri rm))))

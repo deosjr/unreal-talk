@@ -22,6 +22,8 @@
                                    ?ulhc ?urhc ?llhc ?lrhc)))
       (Claim ?p 'has-region (cons ?region region))))
 
+; asserts the region adjusted for rotation:
+; this is useful when drawing as if axis-aligned, then rotating back
 (When ((?someone wishes (?p has-region-from-tag-unrotated
   (?region ?dx1 ?dy1 ?dx2 ?dy2 ?dx3 ?dy3 ?dx4 ?dy4)))
        (?p (page points) (?ulhc ?urhc ?llhc ?lrhc))

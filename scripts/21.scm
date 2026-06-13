@@ -62,5 +62,5 @@
            (src (and image-url
                      (get-url-bytes-with-proc image-url decode-bytes))))
       (if src
-        (draw-mat-onto-region src ?rotation ?ulhc ?urhc ?llhc ?lrhc)
+        (draw-mat-onto-region-opaque src projection ?rotation ?ulhc ?lrhc)
         (Wish this 'subtitled (string-append "LOADING " card-name)))))

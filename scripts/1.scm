@@ -132,14 +132,14 @@
   (let* ((line-y (* line-height line-num))
          (cx (* char-width cursor-x))
          (ytotal dy))
-    (draw-rectangle img 0 0 dx dy 0 0 255 -1)
-    (draw-rectangle img 0 line-y dy (+ line-y line-height) 100 100 255 -1)
-    (draw-rectangle img cx line-y (+ cx char-width) (+ line-y line-height) 150 150 255 -1)
+    (draw-rectangle img 0 0 dx dy 0 0 255 -1) ; background
+    (draw-rectangle img 0 line-y dy (+ line-y line-height) 100 100 255 -1) ; current line
+    (draw-rectangle img cx line-y (+ cx char-width) (+ line-y line-height) 150 150 255 -1) ; cursor
     (let loop ((lst buffer) (y 1))
       (let ((dy (* y line-height)))
         (if (and (< dy ytotal) (not (null? lst)))
           (let ((line (car lst)))
-            (draw-editor-line img line 0 dy font-height 255 255 255)
+            (draw-editor-line img line 0 dy font-height r g b)
             (loop (cdr lst) (+ y 1))))))))
 
 ; editor is unrotated, i.e. axis-aligned with ulhc at upper left-hand corner
@@ -153,5 +153,5 @@
            (dy (- (cdr ?llhc) (cdr ?ulhc)))
            (img (create-image dx dy 16))) ; 16 is 3-channel CV8U
         (draw-editor-lines img dx dy charwidth lineheight 255 255 255)
-        (draw-mat-onto-region img ?rotation ?ulhc ?urhc ?llhc ?lrhc) ; draws and scales the _entire_ image into region
+        (draw-mat-onto-region-opaque img projection ?rotation ?ulhc ?lrhc) ; draws and scales the _entire_ image into region
         (free-image img)))

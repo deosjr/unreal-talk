@@ -13,6 +13,7 @@
 (define font-height 10)
 (define textsize (ft-text-size ft "gh" font-height))
 (define line-height (+ (cadr textsize) 8)) ; 8 padding pixels
+(define char-width (inexact->exact (round (/ (car textsize) 2)))) ; assumes mono font! also, off-by-one??
 
 (define (vec-add p q)
   (let ((px (car p)) (py (cdr p))

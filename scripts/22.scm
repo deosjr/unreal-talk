@@ -19,6 +19,9 @@
   (Wish ?someone 'highlighted 'green)
   (set! curr (cons (cons ?attr ?v) curr)))
 
+(define (stringify claim)
+  (format #f "~a: ~a" (car claim) (cdr claim)))
+
 ; do smth with claims aggregated in previous fixpoint iteration
 (When ((time now ?t)
        (?p has-region (claimlist ?rotation ?ulhc ?urhc ?llhc ?lrhc))) do

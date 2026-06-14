@@ -172,31 +172,17 @@
     (draw-rectangle img 0 line-y dy (+ line-y line-height) lR lG lB -1) ; current line
     (draw-rectangle img cx line-y (+ cx char-width) (+ line-y line-height) cR cG cB -1))) ; cursor
 
-; x and y are lower left corner in aab. rotation is left to the caller.
-; caller is also assumed to draw onto a poly-fill, ie mask includes text already.
-(define (draw-editor-line img str x y height)
-  (let ((r (car text-color)) (g (cadr text-color)) (b (caddr text-color)))
-    (ft-put-text ft img (string->pointer str) x y height r g b)))  ; draw color to 3-channel img
-
-; assumes drawing from ULHC (0, 0)
 (define (draw-editor-lines img dx dy char-width line-height)
-  (let loop ((lst buffer) (y 1))
-    (let ((y-offset (* y line-height)))
-      (if (and (< y-offset dy) (not (null? lst)))
-        (let ((line (car lst)))
-          (draw-editor-line img line 0 y-offset font-height)
-          (loop (cdr lst) (+ y 1)))))))
+  (let ((r (car text-color)) (g (cadr text-color)) (b (caddr text-color)))
+    (draw-text buffer img (cons 0 0) (cons dx dy))))
 
 ; editor is unrotated, i.e. axis-aligned with ulhc at upper left-hand corner
 (When ((this has-region (editor ?rotation ?ulhc ?urhc ?llhc ?lrhc))
        (this editing ?p))
- do (let* ((textsize (ft-text-size ft "gh" font-height)) ;gh give upper/lower bounds for line
-           (charwidth (inexact->exact (round (/ (car textsize) 2)))) ; assumes mono font! also, off-by-one??
-           (lineheight (+ (cadr textsize) 8)) ; 8 padding pixels
-           (dx (- (car ?urhc) (car ?ulhc)))
-           (dy (- (cdr ?llhc) (cdr ?ulhc)))
+ do (let* ((dx (- (car ?lrhc) (car ?ulhc)))
+           (dy (- (cdr ?lrhc) (cdr ?ulhc)))
            (img (create-image dx dy 16))) ; 16 is 3-channel CV8U
-        (draw-editor-background img dx dy charwidth lineheight)
-        (draw-editor-lines img dx dy charwidth lineheight)
+        (draw-editor-background img dx dy char-width line-height)
+        (draw-editor-lines img dx dy char-width line-height)
         (draw-mat-onto-region-opaque img projection ?rotation ?ulhc ?lrhc) ; draws and scales the _entire_ image into region
         (free-image img)))

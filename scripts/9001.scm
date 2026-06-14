@@ -1,10 +1,7 @@
 ; This page supports text projection using wishes
 
-(define font 0)
-(define scale 1.0)
-(define thickness 2)
-
-(define (draw-text-centered str centerpoint rotation)
+; todo: use draw-mat-onto-region ?
+(define* (draw-text-centered str centerpoint rotation #:key (font 0) (scale 1.0) (thickness 2))
   (let* ((testsize (text-size str font scale thickness))
          (width (car testsize))
          (height (cadr testsize))
@@ -26,15 +23,16 @@
     (free-image temp-msk)
     (free-image m)))
 
-(When ((?someone wishes (?p labeled ?str))
+(When ((?someone wishes (?p titled ?str))
        (?p (page points) (?ulhc ?urhc ?llhc ?lrhc))
        (?p (page rotation) ?rotation))
- do (let ((mid (vec->ints (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5)))))
-      (draw-text-centered ?str mid ?rotation)))
+ do (let* ((mid (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5)))
+           (center (vec->ints (vec-add mid (vec-mul (vec-from-to ?llhc ?ulhc) 2.0)))))
+      (draw-text-centered ?str center ?rotation)))
 
 (When ((?someone wishes (?p subtitled ?str))
        (?p (page points) (?ulhc ?urhc ?llhc ?lrhc))
        (?p (page rotation) ?rotation))
  do (let* ((mid (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5)))
-           (center (vec->ints (vec-add (cons 10 10) (vec-add mid (vec-from-to ?ulhc ?llhc))))))
+           (center (vec->ints (vec-add mid (vec-mul (vec-from-to ?ulhc ?llhc) 2.0)))))
       (draw-text-centered ?str center ?rotation)))

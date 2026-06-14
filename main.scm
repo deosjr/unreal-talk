@@ -10,6 +10,10 @@
 (define ft (create-freetype (string->pointer font-path)))
 ;(destroy-freetype ft)
 
+(define font-height 10)
+(define textsize (ft-text-size ft "gh" font-height))
+(define line-height (+ (cadr textsize) 8)) ; 8 padding pixels
+
 (define (vec-add p q)
   (let ((px (car p)) (py (cdr p))
         (qx (car q)) (qy (cdr q)))

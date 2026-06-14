@@ -259,3 +259,23 @@
       (rotate-region-img! timg tmask ulhc lrhc rotation)
       (draw-image timg dst tmask)
       (free-images timg tmask ri rm))))
+
+; todo: abstract this into draw-text, with args left-aligned/centered and wrap yes/no
+; base on scripts 1 (editor), 3 (wiki) and 22 (claims)
+
+; draw lines of text onto an axis-aligned region defined by ulhc-lrhc
+(define* (draw-text lines dst ulhc lrhc
+          #:key (color '(255 255 255)) (align 'left) (wrap #f))
+  (let* ((r (car color)) (g (cadr color)) (b (caddr color))
+         (dx (- (car lrhc) (car ulhc)))
+         (dy (- (cdr lrhc) (cdr ulhc)))
+         (img (create-image dx dy 16))
+         (msk (create-image dx dy 0)))
+    (let loop ((lst lines) (y line-height))
+      (if (and (pair? lst) (< y dy))
+        (let ((strptr (string->pointer (car lst))))
+          (ft-put-text ft img strptr 0 y font-height r g b)
+          (ft-put-text ft msk strptr 0 y font-height 255 255 255)
+          (loop (cdr lst) (+ y line-height)))))
+    (draw-mat-onto-region img dst msk 0 ulhc lrhc)
+    (free-images img msk)))

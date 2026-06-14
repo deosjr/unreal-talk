@@ -2,6 +2,7 @@
 ; this is the low-level editor, owning buffer and cursor
 ; editing behaviour is editable, like in emacs, through RealTalk
 
+(Claim this 'editor #t)
 (Wish this 'has-whiskers #t)
 
 (define line-num 0)
@@ -122,36 +123,80 @@
       (Wish this 'has-region-from-tag-unrotated
        `(editor ,emargin ,edy1 ,edx ,edy1 ,emargin ,edy2 ,edx ,edy2))))
 
-; x and y are lower left corner in aab. rotation is left to the caller.
-; caller is also assumed to draw onto a poly-fill, ie mask includes text already.
-(define (draw-editor-line img str x y height r g b)
-    (ft-put-text ft img (string->pointer str) x y height r g b))  ; draw color to 3-channel img
+; NOTE: like key bindings, how to draw the buffer can be handed off to a different tag
+; For now, we make assumptions and draw a background, a highlighted line, a cursor,
+; and then the text in the buffer (which has a single color only).
 
-; assumes drawing from ULHC (0, 0)
-(define (draw-editor-lines img dx dy char-width line-height r g b)
+(define background-color '(0 0 255))
+(define line-color '(100 100 255))
+(define cursor-color '(150 150 255))
+(define text-color '(255 255 255))
+
+; remember the above as default
+(When ((time now ?t)) do
+  (Remember this this 'background-color background-color)
+  (Remember this this 'line-color line-color)
+  (Remember this this 'cursor-color cursor-color)
+  (Remember this this 'text-color text-color))
+
+; restore default every iteration
+(When ((this background-color ?bg)
+       (this line-color ?l)
+       (this cursor-color ?c)
+       (this text-color ?t))
+ do (set! background-color ?bg)
+    (set! line-color ?l)
+    (set! cursor-color ?c)
+    (set! text-color ?t))
+
+; then let someone else overwrite it using a Wish (which fires later)
+(When ((?someone wishes (this has-background-color ?c)))
+ do (set! background-color ?c))
+
+(When ((?someone wishes (this has-line-color ?c)))
+ do (set! line-color ?c))
+
+(When ((?someone wishes (this has-cursor-color ?c)))
+ do (set! cursor-color ?c))
+
+(When ((?someone wishes (this has-text-color ?c)))
+ do (set! text-color ?c))
+
+(define (draw-editor-background img dx dy char-width line-height)
   (let* ((line-y (* line-height line-num))
          (cx (* char-width cursor-x))
-         (ytotal dy))
-    (draw-rectangle img 0 0 dx dy 0 0 255 -1) ; background
-    (draw-rectangle img 0 line-y dy (+ line-y line-height) 100 100 255 -1) ; current line
-    (draw-rectangle img cx line-y (+ cx char-width) (+ line-y line-height) 150 150 255 -1) ; cursor
-    (let loop ((lst buffer) (y 1))
-      (let ((dy (* y line-height)))
-        (if (and (< dy ytotal) (not (null? lst)))
-          (let ((line (car lst)))
-            (draw-editor-line img line 0 dy font-height r g b)
-            (loop (cdr lst) (+ y 1))))))))
+         (bgR (car background-color)) (bgG (cadr background-color)) (bgB (caddr background-color))
+         (lR (car line-color)) (lG (cadr line-color)) (lB (caddr line-color))
+         (cR (car cursor-color)) (cG (cadr cursor-color)) (cB (caddr cursor-color)))
+    (draw-rectangle img 0 0 dx dy bgR bgG bgB -1) ; background
+    (draw-rectangle img 0 line-y dy (+ line-y line-height) lR lG lB -1) ; current line
+    (draw-rectangle img cx line-y (+ cx char-width) (+ line-y line-height) cR cG cB -1))) ; cursor
+
+; x and y are lower left corner in aab. rotation is left to the caller.
+; caller is also assumed to draw onto a poly-fill, ie mask includes text already.
+(define (draw-editor-line img str x y height)
+  (let ((r (car text-color)) (g (cadr text-color)) (b (caddr text-color)))
+    (ft-put-text ft img (string->pointer str) x y height r g b)))  ; draw color to 3-channel img
+
+; assumes drawing from ULHC (0, 0)
+(define (draw-editor-lines img dx dy char-width line-height)
+  (let loop ((lst buffer) (y 1))
+    (let ((y-offset (* y line-height)))
+      (if (and (< y-offset dy) (not (null? lst)))
+        (let ((line (car lst)))
+          (draw-editor-line img line 0 y-offset font-height)
+          (loop (cdr lst) (+ y 1)))))))
 
 ; editor is unrotated, i.e. axis-aligned with ulhc at upper left-hand corner
 (When ((this has-region (editor ?rotation ?ulhc ?urhc ?llhc ?lrhc))
        (this editing ?p))
  do (let* ((textsize (ft-text-size ft "gh" font-height)) ;gh give upper/lower bounds for line
-           ;(charwidth (+ 1 (inexact->exact (round (/ (car textsize) 2))))) ; assumes mono font! also, off-by-one??
            (charwidth (inexact->exact (round (/ (car textsize) 2)))) ; assumes mono font! also, off-by-one??
            (lineheight (+ (cadr textsize) 8)) ; 8 padding pixels
            (dx (- (car ?urhc) (car ?ulhc)))
            (dy (- (cdr ?llhc) (cdr ?ulhc)))
            (img (create-image dx dy 16))) ; 16 is 3-channel CV8U
-        (draw-editor-lines img dx dy charwidth lineheight 255 255 255)
+        (draw-editor-background img dx dy charwidth lineheight)
+        (draw-editor-lines img dx dy charwidth lineheight)
         (draw-mat-onto-region-opaque img projection ?rotation ?ulhc ?lrhc) ; draws and scales the _entire_ image into region
         (free-image img)))

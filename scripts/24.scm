@@ -1,6 +1,17 @@
 ; evil mode - VIM for emacs
 ; communicates to all editors; eventually should be on a swappable keyboard tag
 
+(define bg '(0 0 255))
+(define line '(100 100 255))
+(define cursor '(150 150 255))
+(define text '(255 255 255))
+
+(When ((?editor editor #t))
+ do (Wish ?editor 'has-background-color bg)
+    (Wish ?editor 'has-line-color line)
+    (Wish ?editor 'has-cursor-color cursor)
+    (Wish ?editor 'has-text-color text))
+
 (When ((key down ?k))
  do (let ((c (integer->char ?k)))
      (Wish this 'subtitled (string c))))

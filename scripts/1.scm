@@ -172,10 +172,6 @@
     (draw-rectangle img 0 line-y dy (+ line-y line-height) lR lG lB -1) ; current line
     (draw-rectangle img cx line-y (+ cx char-width) (+ line-y line-height) cR cG cB -1))) ; cursor
 
-(define (draw-editor-lines img dx dy char-width line-height)
-  (let ((r (car text-color)) (g (cadr text-color)) (b (caddr text-color)))
-    (draw-text buffer img (cons 0 0) (cons dx dy))))
-
 ; editor is unrotated, i.e. axis-aligned with ulhc at upper left-hand corner
 (When ((this has-region (editor ?rotation ?ulhc ?urhc ?llhc ?lrhc))
        (this editing ?p))
@@ -183,6 +179,6 @@
            (dy (- (cdr ?lrhc) (cdr ?ulhc)))
            (img (create-image dx dy 16))) ; 16 is 3-channel CV8U
         (draw-editor-background img dx dy char-width line-height)
-        (draw-editor-lines img dx dy char-width line-height)
+        (draw-text buffer img (cons 0 0) (cons dx dy) #:color text-color)
         (draw-mat-onto-region-opaque img projection ?rotation ?ulhc ?lrhc) ; draws and scales the _entire_ image into region
         (free-image img)))

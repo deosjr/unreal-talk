@@ -12,6 +12,19 @@
     (Wish ?editor 'has-cursor-color cursor)
     (Wish ?editor 'has-text-color text))
 
+; TODO: should live on a separate tag that makes claims about editor visuals
+; but right now this lets us edit the editor dimensions from the editor
+; inner dimensions of 9x9 tag at 1cm per pixel: 5x5cm. a4 in cm: 21 x 29.7
+; tag printed with 2cm margin top and left, editor with margin below tag
+(When ((?editor editor #t)
+       (?editor (page points) (?ulhc ?urhc ?llhc ?lrhc)))
+ do (let* ((margin (- (/ 4 5))) (dx (/ 17 5)) (dy (/ 25.7 5))
+           (emargin (- (/ 2 5))) (edy1 (/ 9 5)) (edy2 (/ 50 5)) (edx (/ 40 5)))
+      (Wish ?editor 'has-region-from-tag 
+       `(outline ,margin ,margin ,dx ,margin ,margin ,dy ,dx ,dy))
+      (Wish ?editor 'has-region-from-tag-unrotated
+       `(editor ,emargin ,edy1 ,edx ,edy1 ,emargin ,edy2 ,edx ,edy2))))
+
 (When ((key down ?k))
  do (let ((c (integer->char ?k)))
      (Wish this 'subtitled (string c))))

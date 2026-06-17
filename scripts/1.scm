@@ -7,18 +7,20 @@
 
 (define line-num 0)
 (define cursor-x 0)
+(define scroll-offset 0)
 (define pageid -1)
 (define mode 'command) ; command/insert/replace
 (define buffer '())
-(define font-height 10) ; todo: make relative to tag size (done by scaling draw?)
 
 (When ((this line-num ?line-num) ; from Remember
        (this cursor-x ?x)
+       (this scroll-offset ?so)
        (this pageid ?id)
        (this mode ?mode)
        (this code-under-edit ?code))
  do (set! line-num ?line-num)
     (set! cursor-x ?x)
+    (set! scroll-offset ?so)
     (set! pageid ?id)
     (set! mode ?mode)
     (set! buffer ?code))
@@ -26,6 +28,7 @@
 (define (remember)
   (Remember this this 'line-num line-num)
   (Remember this this 'cursor-x cursor-x)
+  (Remember this this 'scroll-offset scroll-offset)
   (Remember this this 'mode mode)
   (Remember this this 'code-under-edit buffer))
 
@@ -70,6 +73,12 @@
 (define (end-of-line)
   (set! cursor-x (string-length (list-ref buffer line-num))))
 
+(define (scroll visible)
+  (cond ((< line-num scroll-offset)
+         (set! scroll-offset line-num))
+        ((>= line-num (+ scroll-offset visible))
+         (set! scroll-offset (+ (- line-num visible) 1)))))
+
 ; TODO: n other than 1
 (define (delete-char n)
   (let* ((code-len (length buffer))
@@ -110,18 +119,9 @@
         (Remember this this 'pageid ?p)
         (Remember this this 'line-num 0)
         (Remember this this 'cursor-x 0)
+        (Remember this this 'scroll-offset 0)
         (Remember this this 'mode 'command)
         (Remember this this 'code-under-edit code))))
-
-; inner dimensions of 9x9 tag at 1cm per pixel: 5x5cm. a4 in cm: 21 x 29.7
-; tag printed with 2cm margin top and left, editor with margin below tag
-(When ((this (page points) (?ulhc ?urhc ?llhc ?lrhc)))
- do (let* ((margin (- (/ 4 5))) (dx (/ 17 5)) (dy (/ 25.7 5))
-           (emargin (- (/ 2 5))) (edy1 (/ 9 5)) (edy2 (/ 23.7 5)) (edx (/ 15 5)))
-      (Wish this 'has-region-from-tag 
-       `(outline ,margin ,margin ,dx ,margin ,margin ,dy ,dx ,dy))
-      (Wish this 'has-region-from-tag-unrotated
-       `(editor ,emargin ,edy1 ,edx ,edy1 ,emargin ,edy2 ,edx ,edy2))))
 
 ; NOTE: like key bindings, how to draw the buffer can be handed off to a different tag
 ; For now, we make assumptions and draw a background, a highlighted line, a cursor,
@@ -163,7 +163,7 @@
  do (set! text-color ?c))
 
 (define (draw-editor-background img dx dy char-width line-height)
-  (let* ((line-y (* line-height line-num))
+  (let* ((line-y (* line-height (- line-num scroll-offset)))
          (cx (* char-width cursor-x))
          (bgR (car background-color)) (bgG (cadr background-color)) (bgB (caddr background-color))
          (lR (car line-color)) (lG (cadr line-color)) (lB (caddr line-color))
@@ -177,8 +177,11 @@
        (this editing ?p))
  do (let* ((dx (- (car ?lrhc) (car ?ulhc)))
            (dy (- (cdr ?lrhc) (cdr ?ulhc)))
+           (visible-lines (max 1 (quotient dy line-height)))
+           (buffer-offset (list-tail buffer scroll-offset))
            (img (create-image dx dy 16))) ; 16 is 3-channel CV8U
+        (scroll visible-lines) ; todo: lagging one tick behind?
         (draw-editor-background img dx dy char-width line-height)
-        (draw-text buffer img (cons 0 0) (cons dx dy) #:color text-color)
+        (draw-text buffer-offset img (cons 0 0) (cons dx dy) #:color text-color)
         (draw-mat-onto-region-opaque img projection ?rotation ?ulhc ?lrhc) ; draws and scales the _entire_ image into region
         (free-image img)))

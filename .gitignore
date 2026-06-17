@@ -2,3 +2,4 @@
 *.png
 main
 calibration.json
+*.tmp

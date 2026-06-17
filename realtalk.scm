@@ -396,6 +396,9 @@
     (for-each (lambda (rule) (dl-retract-rule! dl rule)) rules)
     (for-each (lambda (rule) (dl-retract! dl `(,pid rules ,rule))) rules)))
 
+; TODO: assert engine facts like time and key with ?e = 'editor, so they can be queried
+; i.e. 'which facts does the engine provide?' even page points should have 'engine claims ...'
+
 ; note: guile scheme gettimeofday returns a pair of seconds and microseconds in unix epoch 
 (define (assert-time)
   (let (( claims (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (time now ,x) )))))))
@@ -486,12 +489,22 @@
     ; new source — has-error was already asserted by try-compile-page.
     (if proc
       (begin
+        (write-page-code id code-str)
         (dl-retract-page-errors! id)
         (dl-retract-page-code! id)
         (dl-assert! (get-dl) id '(page code) code-str)
         (hash-set! *procs* id proc)
         (page-moved-from-table id)
         (page-moved-onto-table id)))))
+
+; mirror of read-page-code; atomic so a crash mid-write can't corrupt the db
+(define (write-page-code id code-str)
+  (let ((path (format #f "scripts/~d.scm" id))
+        (tmp  (format #f "scripts/~d.scm.tmp" id)))
+    (call-with-output-file tmp
+      (lambda (port) (put-string port code-str))
+      #:encoding "utf-8")
+    (rename-file tmp path)))   ; atomic replace
 
 ; todo: once a background page is physically present on the table,
 ; it unloads once gone and takes all its effects with it :)

@@ -246,19 +246,35 @@
 ; assumes everything is axis-aligned and needs to be rotated
 (define (draw-mat-onto-region src dst mask rotation ulhc lrhc)
   (let* ((ulhcx (car ulhc)) (ulhcy (cdr ulhc))
-         (dx (- (car lrhc) ulhcx))
-         (dy (- (cdr lrhc) ulhcy))
-         (dst-w (image-cols dst))
-         (dst-h (image-rows dst)))
-    (let* ((timg (create-image dst-w dst-h 16))
-           (tmask (create-image dst-w dst-h 0))
-           (ri (region timg ulhcx ulhcy dx dy))
-           (rm (region tmask ulhcx ulhcy dx dy)))
-      (resize src ri dx dy 0 0 3)
-      (resize mask rm dx dy 0 0 0)
+         (dx (- (car lrhc) ulhcx)) (dy (- (cdr lrhc) ulhcy))
+         (dst-w (image-cols dst)) (dst-h (image-rows dst))
+         (timg (create-image dst-w dst-h 16))
+         (tmask (create-image dst-w dst-h 0))
+         (simg (create-image dx dy 16))
+         (smask (create-image dx dy 0)))
+      (resize src simg dx dy 0 0 3)
+      (resize mask smask dx dy 0 0 0)
+      (place-clipped! simg smask timg tmask ulhcx ulhcy)
       (rotate-region-img! timg tmask ulhc lrhc rotation)
       (draw-image timg dst tmask)
-      (free-images timg tmask ri rm))))
+      (free-images timg tmask simg smask)))
+
+(define (place-clipped! simg smask timg tmask ox oy)
+  (let* ((sw (image-cols simg)) (sh (image-rows simg))
+         (dw (image-cols timg)) (dh (image-rows timg))
+         ; overlap of [ox,oy,sw,sh] with [0,0,dw,dh]
+         (x0 (max ox 0))            (y0 (max oy 0))
+         (x1 (min (+ ox sw) dw))    (y1 (min (+ oy sh) dh))
+         (cw (- x1 x0))             (ch (- y1 y0)))
+    (when (and (positive? cw) (positive? ch))
+      (let ((s-roi  (region simg  (- x0 ox) (- y0 oy) cw ch))   ; crop of source
+            (sm-roi (region smask (- x0 ox) (- y0 oy) cw ch))
+            (t-roi  (region timg  x0 y0 cw ch))                 ; same-size dest
+            (tm-roi (region tmask x0 y0 cw ch)))
+        (draw-image s-roi  t-roi  sm-roi)   ; content → timg  (where mask set)
+        (draw-image sm-roi tm-roi sm-roi)   ; footprint → tmask
+        (free-images s-roi sm-roi t-roi tm-roi)))))
+
 
 ; todo: abstract this into draw-text, with args left-aligned/centered and wrap yes/no
 ; base on scripts 1 (editor), 3 (wiki) and 22 (claims)

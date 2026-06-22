@@ -1,5 +1,8 @@
 (include "minikanren.scm")
-(use-modules (srfi srfi-9))
+(use-modules (ice-9 threads)
+             (ice-9 format)
+             (srfi srfi-1)
+             (srfi srfi-9))
 
 (define-record-type <datalog>
   (make-datalog edb idb rdb idx-entity idx-attr idx-eav counter)
@@ -88,21 +91,27 @@
   (syntax-rules ()
     ((_ dl (m ...)) (conj+ (dl-findo_ dl `m) ... ))))
 
-; Three mutually-exclusive cases by boundness:
-;   (entity bound, attr bound)   -> idx-eav  : best, smallest candidate set
-;   (entity bound, attr unbound) -> idx-entity
-;   (entity unbound, attr bound) -> idx-attr
-; (both unbound is unsupported — query is too open.)
+; Cases by ground-ness. We use ground-ness (deep: no unbound var anywhere)
+; rather than top-level boundness so a partially-instantiated compound attr
+; like (region ?name) is handled. For the entity position — always an atom
+; or a single var, never a partial compound — ground-ness and boundness
+; coincide. groundo / non-groundo are exact complements, so the conde
+; branches stay mutually exclusive (no duplicate solutions):
+;   (entity ground,   attr ground)     -> idx-eav   : smallest candidate set
+;   (entity ground,   attr non-ground) -> idx-entity: scan; membero unifies attr
+;   (entity non-ground, attr ground)   -> idx-attr
+; (entity non-ground + attr non-ground is unsupported — query is too open;
+;  bind the entity first, e.g. enumerate pages via a ground attr.)
 (define (dl-findo_ dl m)
    (fresh (x y entity attr db)
    (conso entity x m)
    (conso attr y x)
      (conde
-       [(boundo entity) (boundo attr)
+       [(groundo entity) (groundo attr)
         (lookupo2 (datalog-idx-eav dl) entity attr db) (membero m db)]
-       [(boundo entity) (unboundo attr)
+       [(groundo entity) (non-groundo attr)
         (lookupo (datalog-idx-entity dl) entity db) (membero m db)]
-       [(unboundo entity) (boundo attr)
+       [(non-groundo entity) (groundo attr)
         (lookupo (datalog-idx-attr dl) attr db) (membero m db)] )))
 
 ; compiles the rule to a goal function
@@ -114,6 +123,15 @@
            (let ((str (symbol->string s)))
              (and (positive? (string-length str))
                   (char=? (string-ref str 0) #\?)))))
+
+  ; #t when a logic var appears ANYWHERE in DATUM, including nested inside a
+  ; compound attr like (region ?name). Used to decide rule eligibility: such
+  ; a rule's attr can't be predicted at expand time, so it's marked 'any.
+  (define (contains-question-mark? datum)
+    (cond ((symbol-with-question-mark? datum) #t)
+          ((pair? datum) (or (contains-question-mark? (car datum))
+                             (contains-question-mark? (cdr datum))))
+          (else #f)))
 
   (define (collect-vars datum)
         (cond
@@ -160,7 +178,7 @@
             (body-attrs (syntax->datum #'(body ...)))
             (any-var? (let loop ((as body-attrs))
                         (cond ((null? as) #f)
-                              ((symbol-with-question-mark? (car as)) #t)
+                              ((contains-question-mark? (car as)) #t)
                               (else (loop (cdr as))))))
             (rule-attrs-datum (if any-var? 'any body-attrs))
             ; Wrap as syntax so the #, splice produces a real syntax
@@ -242,18 +260,21 @@
      (foldl f (cdr l) (f (car l) acc))))
 
 (define (conso a b l) (equalo (cons a b) l))
-(define (boundo v)
-    (lambda (s/c)
-      (if (var? v)
-        (let ((x (walk v (car s/c))))
-          (if (var? x) mzero (unit s/c)))
-        (unit s/c))))
-(define (unboundo v)
-    (lambda (s/c)
-      (if (var? v)
-        (let ((x (walk v (car s/c))))
-          (if (var? x) (unit s/c) mzero))
-        mzero)))
+; A term is "ground" when, fully walked, it contains no unbound logic
+; variable anywhere. A bare unbound var is non-ground; so is a partially
+; instantiated compound like (region <unbound>). (This replaces the old
+; shallow boundo/unboundo, which only inspected the top level and so
+; mis-routed a partial compound attr into an exact-lookup branch — where it
+; silently found nothing.)
+(define (term-ground? term s)
+  (let scan ((v (walk* term s)))
+    (cond ((var? v) #f)
+          ((pair? v) (and (scan (car v)) (scan (cdr v))))
+          (else #t))))
+(define (groundo term)
+    (lambda (s/c) (if (term-ground? term (car s/c)) (unit s/c) mzero)))
+(define (non-groundo term)
+    (lambda (s/c) (if (term-ground? term (car s/c)) mzero (unit s/c))))
 (define (lookupo m key value)
     (lambda (s/c)
       (let* ((k (if (var? key) (walk key (car s/c)) key))
@@ -288,31 +309,3 @@
 
 (define (hashtable-keys ht)
   (hash-fold (lambda (k v acc) (cons k acc)) '() ht))
-
-;(dl-record 'car ('speed 4) ('smth 5))
-; goal looks like: (fresh-vars 3 (lambda (q ?x ?y) (equalo q ?x) (dl_findo ( (,?x '(car speed) 4) ))))
-;(define test2 (dl_find (fresh-vars 3 (lambda (q ?x ?y) (conj (equalo q `,?y) (dl_findo ( (,?x (car speed) 4) (,?x (car smth) ,?y) )))))))
-; there could be a separate macro rewriting the below to the above
-;(define test2 (dl_find ,?y where (,?x (car speed) 4) (,?x (car smth) ,?y) ))
-
-#|
-(define dl (make-new-datalog))
-(define a (dl-record! dl 'vertex))
-(define b (dl-record! dl 'vertex))
-(define c (dl-record! dl 'vertex))
-(define d (dl-record! dl 'vertex))
-(define e (dl-record! dl 'vertex))
-(define (dl-edge x y) (dl-assert! dl x 'edge y))
-(dl-edge a c)
-(dl-edge b a)
-(dl-edge b d)
-(dl-edge c d)
-(dl-edge d a)
-(dl-edge d e)
-(dl-rule! dl (reachable ,?x ,?y) :- (edge ,?x ,?y))
-(dl-rule! dl (reachable ,?x ,?y) :- (edge ,?x ,?z) (reachable ,?z ,?y))
-(dl-fixpoint! dl)
-;(define test2 (dl_find ,?id where (,?id reachable ,?id)))
-(define test2 (dl-find (fresh-vars 1 (lambda (?id) (dl-findo dl ( (,?id reachable ,?id) ))))))
-(display test2) ; expect a permutation of (1 3 4)
-|#

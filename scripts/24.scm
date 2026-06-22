@@ -17,7 +17,7 @@
 ; inner dimensions of 9x9 tag at 1cm per pixel: 5x5cm. a4 in cm: 21 x 29.7
 ; tag printed with 2cm margin top and left, editor with margin below tag
 (When ((?editor editor #t)
-       (?editor (page points) (?ulhc ?urhc ?llhc ?lrhc)))
+       (?editor (region page-points) (?ulhc ?urhc ?llhc ?lrhc)))
  do (let* ((margin (- (/ 4 5))) (dx (/ 17 5)) (dy (/ 25.7 5))
            (emargin (- (/ 2 5))) (edy1 (/ 9 5)) (edy2 (/ 50 5)) (edx (/ 40 5)))
       (Wish ?editor 'has-region-from-tag 

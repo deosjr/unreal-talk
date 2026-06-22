@@ -28,14 +28,14 @@
  do (let ((freq (inexact->exact (round (* 100 ?freq)))))
       (set! frequency-data (add-data-point frequency-data freq))))
 
-(When ((this (page points) (?ulhc ?urhc ?llhc ?lrhc)))
+(When ((this (region page-points) (?ulhc ?urhc ?llhc ?lrhc)))
  do (let* ((margin (/ 7 5)) (dx (/ 30 5)) (dy (/ 30 5)))
       (Wish this 'has-region-from-tag 
        `(outline ,margin 0 ,dx 0 ,margin ,dy ,dx ,dy))
       (Wish this 'has-region-from-tag 
        `(graph ,margin 0 ,dx 0 ,margin ,dy ,dx ,dy))))
 
-(When ((this has-region (graph ?ulhc ?urhc ?llhc ?lrhc)))
+(When ((this (region graph) (?ulhc ?urhc ?llhc ?lrhc)))
  do (let ((graph (list ?ulhc ?urhc ?llhc ?lrhc)))
       (fill-poly projection (bytevector->pointer (points->bytevector ?ulhc ?urhc ?lrhc ?llhc)) 4 100 100 100)
       (Wish this 'plot-data `(,consumption-data ,minMW ,maxMW ,maxlen ,graph (255 0 0)))

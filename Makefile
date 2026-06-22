@@ -75,3 +75,24 @@ run: build-opencv build-go
 calibrate: build-opencv build-go
 	rm -f calibration.json
 	./main --calibrate
+
+# ---------------------------------------------------------------------
+# Scheme unit tests.
+# ---------------------------------------------------------------------
+
+# Pure-Scheme tests (no OpenCV/AprilTag/camera needed). Each *_test.scm
+# loads its target with (include) and exits non-zero on failure.
+# GUILE_AUTO_COMPILE=0 is required: these files (include) their target
+# module, and Guile's .go cache for the test file is NOT invalidated when
+# only the included module changes — so a cached build would test stale code.
+TEST_FILES := $(wildcard *_test.scm)
+
+test:
+	@status=0; \
+	for t in $(TEST_FILES); do \
+		echo "==> $$t"; \
+		GUILE_AUTO_COMPILE=0 guile -L . "$$t" || status=1; \
+	done; \
+	exit $$status
+
+.PHONY: setup-deps build-opencv build-go run calibrate test

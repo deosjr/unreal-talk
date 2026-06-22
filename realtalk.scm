@@ -191,6 +191,16 @@
              (and (positive? (string-length s))
                   (char=? (string-ref s 0) #\?)))))
 
+    ; #t when a logic var appears ANYWHERE in DATUM, including nested inside
+    ; a compound attr such as (region ?name). Used for semi-naive eligibility:
+    ; a rule whose attr contains a logic var can't be predicted at expand
+    ; time, so it must be marked 'any (always-eligible).
+    (define (contains-logic-var? datum)
+      (cond ((logic-var? datum) #t)
+            ((pair? datum) (or (contains-logic-var? (car datum))
+                               (contains-logic-var? (cdr datum))))
+            (else #f)))
+
     ; All distinct logic variables in DATUM, in first-seen order. The
     ; order matters: it fixes the parameter order of both the body-
     ; procedure and the rule's lambda, so the args produced by
@@ -263,7 +273,7 @@
                 (body-attrs (map cadr conds))
                 (any-var? (let loop ((as body-attrs))
                             (cond ((null? as) #f)
-                                  ((logic-var? (car as)) #t)
+                                  ((contains-logic-var? (car as)) #t)
                                   (else (loop (cdr as))))))
                 (rule-attrs-datum (if any-var? 'any body-attrs))
                 ; Wrap the literal in syntax anchored at stx so the
@@ -345,13 +355,13 @@
 ;(define (update-page-geometry pid ulhc urhc llhc lrhc rotation)
 (define (update-page-geometry pid points rotation)
     (retract-page-geometry pid)
-    (dl-assert! dl pid '(page points) points)
+    (dl-assert! dl pid '(region page-points) points)
     (dl-assert! dl pid '(page rotation) rotation))
 
 (define (retract-page-geometry pid)
-  (let (( points (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (,pid (page points) ,x) ))))))
+  (let (( points (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (,pid (region page-points) ,x) ))))))
         ( rotation (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (,pid (page rotation) ,x) )))))))
-    (if (not (null? points)) (dl-retract! dl `(,pid (page points) ,(car points))))
+    (if (not (null? points)) (dl-retract! dl `(,pid (region page-points) ,(car points))))
     (if (not (null? rotation)) (dl-retract! dl `(,pid (page rotation) ,(car rotation))))))
 
 ; Clear any 'has-error facts attached to PID. Used both on successful

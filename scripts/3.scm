@@ -3,7 +3,7 @@
 
 (Claim this '(wiki topic) topic)
 
-(When ((this (page points) (?ulhc ?urhc ?llhc ?lrhc)))
+(When ((this (region page-points) (?ulhc ?urhc ?llhc ?lrhc)))
  do (let* ((margin (/ 8 5)) (dx (/ 50 5)) (dy (/ 50 5)))
       (Wish this 'has-region-from-tag 
        `(outline ,margin 0 ,dx 0 ,margin ,dy ,dx ,dy))
@@ -100,7 +100,7 @@ first))
     (free-image msk)
     (free-image m)))
 
-(When ((?p has-region (wiki ?rotation ?ulhc ?urhc ?llhc ?lrhc))
+(When ((?p (region wiki) (?rotation ?ulhc ?urhc ?llhc ?lrhc))
        (?p (wiki topic) ?topic))
  do (let* ((url (string-append urlpref ?topic))
            (res (get-url-with-proc url get-first-paragraph))
@@ -116,7 +116,7 @@ first))
             (test (point-polygon-test ptr 4 ?px ?py)))
     (if (> test 0) (Claim ?p 'points-at-wiki-link ?topic))))
 
-(When ((?p has-region (wiki ?rotation ?ulhc ?urhc ?llhc ?lrhc))
+(When ((?p (region wiki) (?rotation ?ulhc ?urhc ?llhc ?lrhc))
        (?p points-at-wiki-link ?topic))
  do (let* ((url (string-append urlpref ?topic))
            (res (get-url-with-proc url get-first-paragraph))

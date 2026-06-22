@@ -24,14 +24,14 @@
     (free-image m)))
 
 (When ((?someone wishes (?p titled ?str))
-       (?p (page points) (?ulhc ?urhc ?llhc ?lrhc))
+       (?p (region page-points) (?ulhc ?urhc ?llhc ?lrhc))
        (?p (page rotation) ?rotation))
  do (let* ((mid (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5)))
            (center (vec->ints (vec-add mid (vec-mul (vec-from-to ?llhc ?ulhc) 2.0)))))
       (draw-text-centered ?str center ?rotation)))
 
 (When ((?someone wishes (?p subtitled ?str))
-       (?p (page points) (?ulhc ?urhc ?llhc ?lrhc))
+       (?p (region page-points) (?ulhc ?urhc ?llhc ?lrhc))
        (?p (page rotation) ?rotation))
  do (let* ((mid (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5)))
            (center (vec->ints (vec-add mid (vec-mul (vec-from-to ?ulhc ?llhc) 2.0)))))

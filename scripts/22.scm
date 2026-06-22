@@ -24,7 +24,7 @@
 
 ; do smth with claims aggregated in previous fixpoint iteration
 (When ((time now ?t)
-       (?p has-region (claimlist ?rotation ?ulhc ?urhc ?llhc ?lrhc))) do
+       (?p (region claimlist) (?rotation ?ulhc ?urhc ?llhc ?lrhc))) do
   (check-swap-buffers ?t)
   (let* ((strs (map stringify prev))
          (lines (sort strs string<?))
@@ -36,7 +36,7 @@
     (draw-mat-onto-region-opaque img projection ?rotation ?ulhc ?lrhc)
     (free-image img)))
 
-(When ((this (page points) (?ulhc ?urhc ?llhc ?lrhc)))
+(When ((this (region page-points) (?ulhc ?urhc ?llhc ?lrhc)))
  do (let* ((margin (/ 8 5)) (dx (/ 50 5)) (dy (/ 50 5)))
       (Wish this 'has-region-from-tag 
        `(outline ,margin 0 ,dx 0 ,margin ,dy ,dx ,dy))

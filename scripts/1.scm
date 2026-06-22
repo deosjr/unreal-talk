@@ -173,7 +173,7 @@
     (draw-rectangle img cx line-y (+ cx char-width) (+ line-y line-height) cR cG cB -1))) ; cursor
 
 ; editor is unrotated, i.e. axis-aligned with ulhc at upper left-hand corner
-(When ((this has-region (editor ?rotation ?ulhc ?urhc ?llhc ?lrhc))
+(When ((this (region editor) (?rotation ?ulhc ?urhc ?llhc ?lrhc))
        (this editing ?p))
  do (let* ((dx (- (car ?lrhc) (car ?ulhc)))
            (dy (- (cdr ?lrhc) (cdr ?ulhc)))

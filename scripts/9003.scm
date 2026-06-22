@@ -1,6 +1,6 @@
 ; highlighting means drawing an outline around the tag points
 (When ((?someone wishes (?p highlighted ?color))
-       (?p (page points) (?ulhc ?urhc ?llhc ?lrhc)))
+       (?p (region page-points) (?ulhc ?urhc ?llhc ?lrhc)))
  do (let* ((scaling-factor 2.0)
            (mid (vec->ints (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5))))
            (ulhc (vec->ints (vec-add mid (vec-mul (vec-from-to mid ?ulhc) scaling-factor))))
@@ -26,5 +26,5 @@
   (draw-line projection (car lrhc) (cdr lrhc) (car llhc) (cdr llhc) r g b width)
   (draw-line projection (car llhc) (cdr llhc) (car ulhc) (cdr ulhc) r g b width)))
 
-(When ((?p has-region (outline ?ulhc ?urhc ?llhc ?lrhc)))
+(When ((?p (region outline) (?ulhc ?urhc ?llhc ?lrhc)))
  do (draw-outline 'white 2 ?ulhc ?urhc ?llhc ?lrhc))

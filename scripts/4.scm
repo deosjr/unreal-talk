@@ -1,8 +1,8 @@
 (Claim this 'hand 'left)
 
 (When ((?p hand right)
-       (this (region page-points) (?ulhc ?urhc ?llhc ?lrhc))
-       (?p (region page-points) (?pulhc ?purhc ?pllhc ?plrhc)))
+       (this (page points) (?ulhc ?urhc ?llhc ?lrhc))
+       (?p (page points) (?pulhc ?purhc ?pllhc ?plrhc)))
  do (let* ((left-mid (vec-add ?ulhc (vec-mul (vec-from-to ?lrhc ?ulhc) (/ 2 5))))
            (left-midx (inexact->exact (round (car left-mid)))) (left-midy (inexact->exact (round (cdr left-mid))))
            (right-mid (vec-add ?pulhc (vec-mul (vec-from-to ?plrhc ?pulhc) (/ 2 5))))
@@ -10,7 +10,7 @@
       (draw-rectangle projection left-midx left-midy right-midx right-midy 255 255 255 2)
       (Claim (gensym) 'selection-rect (cons (cons left-midx left-midy) (cons right-midx right-midy)))))
 
-(When ((this (region page-points) (?ulhc ?urhc ?llhc ?lrhc)))
+(When ((this (page points) (?ulhc ?urhc ?llhc ?lrhc)))
  do (Wish this 'has-region-from-tag-unrotated
      `(snapshot 1.2 0 4.2 0 1.2 3 4.2 3)))
 

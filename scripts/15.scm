@@ -28,7 +28,7 @@
  do (let ((freq (inexact->exact (round (* 100 ?freq)))))
       (set! frequency-data (add-data-point frequency-data freq))))
 
-(When ((this (region page-points) (?ulhc ?urhc ?llhc ?lrhc)))
+(When ((this (page points) (?ulhc ?urhc ?llhc ?lrhc)))
  do (let* ((margin (/ 7 5)) (dx (/ 30 5)) (dy (/ 30 5)))
       (Wish this 'has-region-from-tag 
        `(outline ,margin 0 ,dx 0 ,margin ,dy ,dx ,dy))

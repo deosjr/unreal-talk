@@ -10,7 +10,7 @@
 ; basis vectors are x and y of size 1 tag pixel
 ; the ball is one tag pixel in diameter
 ; paddles are 5 tag pixels long
-(When ((this (region page-points) (?ulhc ?urhc ?llhc ?lrhc)))
+(When ((this (page points) (?ulhc ?urhc ?llhc ?lrhc)))
  do (let* ((scale (/ (vec-length (vec-from-to ?ulhc ?urhc)) 5))
            ; defaults to start the game off, if none are Remembered
            (bx (/ field-width 2))

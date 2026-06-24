@@ -352,16 +352,15 @@
     pid))
 
 ; make page dimensions known in datalog
-;(define (update-page-geometry pid ulhc urhc llhc lrhc rotation)
 (define (update-page-geometry pid points rotation)
     (retract-page-geometry pid)
-    (dl-assert! dl pid '(region page-points) points)
+    (dl-assert! dl pid '(page points) points)
     (dl-assert! dl pid '(page rotation) rotation))
 
 (define (retract-page-geometry pid)
-  (let (( points (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (,pid (region page-points) ,x) ))))))
+  (let (( points (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (,pid (page points) ,x) ))))))
         ( rotation (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (,pid (page rotation) ,x) )))))))
-    (if (not (null? points)) (dl-retract! dl `(,pid (region page-points) ,(car points))))
+    (if (not (null? points)) (dl-retract! dl `(,pid (page points) ,(car points))))
     (if (not (null? rotation)) (dl-retract! dl `(,pid (page rotation) ,(car rotation))))))
 
 ; Clear any 'has-error facts attached to PID. Used both on successful

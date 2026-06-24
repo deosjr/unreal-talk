@@ -100,8 +100,13 @@
 ;   (entity ground,   attr ground)     -> idx-eav   : smallest candidate set
 ;   (entity ground,   attr non-ground) -> idx-entity: scan; membero unifies attr
 ;   (entity non-ground, attr ground)   -> idx-attr
-; (entity non-ground + attr non-ground is unsupported — query is too open;
-;  bind the entity first, e.g. enumerate pages via a ground attr.)
+;   (entity non-ground, attr non-ground) -> a tiny "bind the entity first"
+;       planner: enumerate the entity var over idx-entity's keys (every known
+;       entity), then fall through to the same idx-entity path as case 2. This
+;       lets the fully-open shape, e.g. (?q (region ?name) ?v), resolve on its
+;       own — no need for the caller to hand-roll an entity enumerator. It
+;       still visits every fact, so it's the costliest plan; lead with a ground
+;       attr when you can.
 (define (dl-findo_ dl m)
    (fresh (x y entity attr db)
    (conso entity x m)
@@ -112,7 +117,10 @@
        [(groundo entity) (non-groundo attr)
         (lookupo (datalog-idx-entity dl) entity db) (membero m db)]
        [(non-groundo entity) (groundo attr)
-        (lookupo (datalog-idx-attr dl) attr db) (membero m db)] )))
+        (lookupo (datalog-idx-attr dl) attr db) (membero m db)]
+       [(non-groundo entity) (non-groundo attr)
+        (keyso (datalog-idx-entity dl) entity)
+        (lookupo (datalog-idx-entity dl) entity db) (membero m db)] )))
 
 ; compiles the rule to a goal function
 ; here we need to find the ?vars and assert #`(fresh-vars #,num-vars (lambda (#,@vars) (conj (equalo q #,head) (dl_findo #,@body))))
@@ -288,6 +296,14 @@
              (inner (hash-ref m k1 #f))
              (v (and inner (hash-ref inner k2 #f))))
        (if v ((equalo value (hashtable-keys v)) s/c) mzero))))
+
+; Enumerate every key of hash-table M, unifying each with KEY (expected to be
+; an unbound var). The key list is materialised only when this goal actually
+; runs — guarded behind the non-ground branch of dl-findo_ — so the common
+; ground-entity cases pay nothing for it.
+(define (keyso m key)
+  (lambda (s/c)
+    ((membero key (hashtable-keys m)) s/c)))
 
 (define (membero x l)
    (fresh (a d)

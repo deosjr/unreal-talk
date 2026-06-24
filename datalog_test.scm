@@ -184,6 +184,41 @@
                        (cons 'p2 'page-points) (cons 'p2 'editor)))))
 
 ;;; ----------------------------------------------------------------------
+;;; Fully-open queries — unbound entity AND non-ground attr. Exercises the
+;;; "bind the entity first" planner branch (enumerate entities from idx-entity,
+;;; then match via the entity index). This is the whisker shape:
+;;;   (?q (region ?name) ?v)
+;;; ----------------------------------------------------------------------
+
+;; (1) Open entity + PARTIAL compound attr: every (entity . region-name) pair
+;;     across all pages, binding both the entity and the region name, while
+;;     excluding the non-region (attribute . value) tuple.
+(let ((dl (make-fixture)))
+  (check "open: every (entity . region-name) across all pages"
+         (as-set (dl-find (fresh-vars 4
+                   (lambda (q e n v)
+                     (conj+ (equalo q (cons e n))
+                            (dl-findo dl ( (,e (region ,n) ,v) )))))))
+         (as-set (list (cons 'p1 'page-points) (cons 'p1 'editor) (cons 'p1 'outline)
+                       (cons 'p2 'page-points) (cons 'p2 'editor)))))
+
+;; (2) Fully-open triple: unbound entity, unbound (bare-var) attr. Returns the
+;;     ENTIRE fact set exactly once — including the non-region tuple — with no
+;;     duplicates (guards against the new branch overlapping the others).
+(let ((dl (make-fixture)))
+  (check "open: the whole database, once each"
+         (as-set (dl-find (fresh-vars 4
+                   (lambda (q e a v)
+                     (conj+ (equalo q (list e a v))
+                            (dl-findo dl ( (,e ,a ,v) )))))))
+         (as-set (list (list 'p1 '(region page-points) 'pp1)
+                       (list 'p1 '(region editor)      'ed1)
+                       (list 'p1 '(region outline)     'ol1)
+                       (list 'p1 'attribute            'value)
+                       (list 'p2 '(region page-points) 'pp2)
+                       (list 'p2 '(region editor)      'ed2)))))
+
+;;; ----------------------------------------------------------------------
 ;;; summary / exit code
 ;;; ----------------------------------------------------------------------
 

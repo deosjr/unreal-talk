@@ -15,7 +15,7 @@
 
 ; Cards are outlined, based on MTG card dimensions, with tag in center of illustration
 (When ((?p card-type ?ct)
-       (?p (region page-points) (?ulhc ?urhc ?llhc ?lrhc)))
+       (?p (page points) (?ulhc ?urhc ?llhc ?lrhc)))
  do (let* ((margin (- (/ 4 5)))
            (dx (/ 9 5))
            (dy (/ 15 5)))

@@ -52,7 +52,7 @@
 
 ; Region geometry: multipliers are on the tag's local dx/dy basis
 ; vectors (see scripts/9004.scm).
-(When ((this (region page-points) (?ulhc ?urhc ?llhc ?lrhc)))
+(When ((this (page points) (?ulhc ?urhc ?llhc ?lrhc)))
  do (Wish this 'has-region-from-tag-unrotated
      `(image 2 0 6 0 2 6 6 6)))
 

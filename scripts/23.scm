@@ -45,6 +45,3 @@
 
 ; todo: subtitle takes region?
 (When ((this value ?v)) do (Wish this 'subtitled (number->string ?v))) 
-
-;(When ((?someone wishes (?p has-parameter (?name ?min ?max ?default))))
-; do (if (any-facts? ?p ?name) (Remember ?p ?p ?name 42)))

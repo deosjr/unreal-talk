@@ -6,6 +6,7 @@
 (define cursor '(150 150 255))
 (define text '(255 255 255))
 
+; TODO: use parameters?
 (When ((?editor editor #t))
  do (Wish ?editor 'has-background-color bg)
     (Wish ?editor 'has-line-color line)

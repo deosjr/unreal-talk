@@ -44,7 +44,7 @@
 (define param-id #f)
 
 (define (new-id id)
-  (let ((new? (not (eqv? id param-id))))
+  (let ((new? (not (equal? id param-id))))
     (if new? (set! param-id id))
     new?))
 
@@ -55,24 +55,25 @@
 ; We want to create a circle with values from min-max
 ; and lock in the current orientation of the dial
 ; to point at the current value of the parameter
+; let's say min value is at rotation 0 and max at 360
+; then rotation should be current value as a ratio in degrees
+; but it is probably not, so we store the original offset to adjust
 ; NOTE: we assume a linear space between min/max
 (define (lock-in-orientation min max value rotation)
   (set! param-min min)
   (set! param-max max)
   (let* ((adjusted-max (- max min))
-         (param-ratio (/ value adjusted-max))
+         (adjusted-v (- value min))
+         (param-ratio (/ adjusted-v adjusted-max))
          (rotation-ratio (/ rotation 360))
-         ; force positive, although perhaps negative rotation also works
-         (offset (* (- (+ 1 rotation-ratio) param-ratio) 360)))
+         (offset (- param-ratio rotation-ratio)))
     (set! rotation-offset offset)))
 
 ; todo: draw values around the circle
-; At rotation offset = 0 we assume the param value = min
-; We draw a circle around the dial tag
-; such that min AND max are both positioned at the top wrt projection
-; this occurs when the param value at time of locking in orientation
-; is exactly min OR max (because we work in 360 modulo)
-; We can just draw this exact setup unrotated, then rotate according to offset
+; circle is drawn in axis-aligned orientation
+; rotation-offset corrects for difference between dial rotation
+; and the value on the dial it is actually pointing to, as a ratio
+; TODO: draw an arrow to current value?
 (define (draw-dial ulhc lrhc)
   (let* ((center (center-point ulhc lrhc))
          (cx (car center)) (cy (cdr center))
@@ -81,9 +82,13 @@
          (rad-int (inexact->exact (round radius))))
     (draw-circle projection cx cy rad-int 255 255 255 2)))
 
-; TODO: draw an arrow to current value?
 (define (set-param pid name rotation)
-  (Remember pid pid name rotation)) ; TODO
+  (let* ((ratio (/ rotation 360))
+         (r (+ ratio rotation-offset))
+         (rr (- r (floor r)))
+         (range (- param-max param-min))
+         (v (+ (* rr range) param-min)))
+    (Remember pid pid name v)))
 
 (When ((this adjusts ?r)
        (?p (region parameter) ?r)

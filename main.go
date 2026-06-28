@@ -31,12 +31,17 @@ func init() {
 }
 
 func main() {
-
-	calib := flag.Bool("calibrate", false, "calibrate camera instead of running")
+	calibFlag := flag.Bool("calibrate", false, "calibrate camera instead of running")
+	printFlag := flag.Bool("print", false, "print tags instead of running")
 	flag.Parse()
-	if *calib {
+	if *calibFlag {
 		fmt.Println("calibrating...")
 		calibrate()
+		return
+	}
+	if *printFlag {
+		fmt.Println("printing...")
+		print_tags()
 		return
 	}
 

@@ -7,8 +7,7 @@ import (
 	"gocv.io/x/gocv"
 )
 
-func print_tag() {
-	//func main() {
+func print_tags() {
 	w, h := 2480, 3508 // 300 ppi/dpi
 	// a4 in cm: 21 x 29.7
 	// which means 1cm in pixels = 2480/21 =~ 118 (?)
@@ -38,7 +37,7 @@ func print_tag() {
 	maxX, maxY := 3, 5
 	for y := 1; y <= maxY; y++ {
 		for x := 1; x <= maxX; x++ {
-			id := maxX*(y-1) + x + 15
+			id := maxX*(y-1) + x + 30
 			file := fmt.Sprintf("../apriltag-imgs/tagStandard41h12/tag41_12_%05d.png", id)
 			tag := gocv.IMRead(file, gocv.IMReadGrayScale)
 			defer tag.Close()

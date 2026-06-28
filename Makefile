@@ -76,6 +76,9 @@ calibrate: build-opencv build-go
 	rm -f calibration.json
 	./main --calibrate
 
+print: build-opencv build-go
+	./main --print
+
 # ---------------------------------------------------------------------
 # Scheme unit tests.
 # ---------------------------------------------------------------------

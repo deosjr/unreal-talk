@@ -3,17 +3,6 @@
 ; only supports floating point params with a min/max
 ; todo: at least enums, set amount of possible values
 
-(define t_iter 0)
-(define prev '())
-(define curr '())
-
-(define (check-swap-buffers t)
-  (if (not (equal? t t_iter))
-    (begin
-      (set! prev curr)
-      (set! curr '())
-      (set! t_iter t))))
-
 (define (center-point ulhc lrhc)
   (let ((diagonal (vec-from-to ulhc lrhc)))
     (vec->ints (vec-add ulhc (vec-mul diagonal 0.5)))))
@@ -23,23 +12,17 @@
  do (let ((center (center-point ?ulhc ?lrhc)))
        (Claim ?r '(region center) center)))
 
-(When ((this (page points) (?ulhc ?urhc ?llhc ?lrhc))
-       (?r (region name) parameter)
-       (?r (region center) ?c)
-       (time now ?t))
- do (let* ((center (center-point ?ulhc ?lrhc))
-           (d (vec-length (vec-from-to center ?c))))
-      (check-swap-buffers ?t)
-      (if (null? curr)
-        (set! curr (cons d ?r))
-        (let ((mind (car curr)))
-          (if (< d mind) (set! curr (cons d ?r)))))))
-
-(When ((time now ?t)) do
-  (check-swap-buffers ?t)
-  (if (not (null? prev))
-    (let ((regionid (cdr prev)))
-      (Claim this 'adjusts regionid))))
+; MAP each parameter region to (distance-from-page-centre . region-id),
+; REDUCE picks the nearest and claims it as the dial being adjusted.
+; One frame of latency, same as the hand-rolled prev/curr buffer was.
+(Collect ((this (page points) (?ulhc ?urhc ?llhc ?lrhc))
+          (?r (region name) parameter)
+          (?r (region center) ?c))
+  emit (cons (vec-length (vec-from-to (center-point ?ulhc ?lrhc) ?c)) ?r)
+  as   dists
+  do   (if (not (null? dists))
+         (let ((nearest (car (sort dists (lambda (a b) (< (car a) (car b)))))))
+           (Claim this 'adjusts (cdr nearest)))))
 
 (define param-id #f)
 

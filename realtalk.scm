@@ -306,6 +306,80 @@
 (define (derived-wish! this id attr value)
   (dl-assert-derived! (get-dl) this 'wishes (list id attr value)))
 
+; ----------------------------------------------------------------------
+; (Collect (cond ...) emit emit-expr as name do body ...)
+;
+; Cross-frame map-reduce / negation over a datalog query. The engine's
+; fixpoint is monotone with no script-visible "converged" signal, so you
+; cannot aggregate within a frame. Collect sidesteps that with a per-use
+; double buffer swapped once per frame on the (time now) tick:
+;
+;   * MAP    - an accumulator When over (cond ...). For every matching
+;              tuple it conses emit-expr onto the current buffer. emit-expr
+;              is plain Scheme over the query's ?vars (so it can compute,
+;              e.g. a distance, not just project).
+;   * SHUFFLE- the frame boundary. When (time now) advances we swap: the
+;              just-completed buffer (a fully converged set) becomes `prev`,
+;              the current buffer resets. The swap is idempotent on the
+;              timestamp, so it happens exactly once per frame regardless of
+;              which/how many rules touch the buffers, in any firing order.
+;   * REDUCE - a time-keyed consumer When that fires once per frame *even
+;              when nothing matched* (this is what makes negation/forall
+;              expressible). It binds `name` to the COMPLETE set of emits
+;              from the PREVIOUS frame and runs body. Claim/Wish in body
+;              are rewritten by When as usual.
+;
+; Consequence: results lag one frame. Chaining Collects stacks the lag.
+;
+; Implementation note: each Collect needs private buffer state shared
+; between its generated `define`s and its two `When` bodies. We cannot use
+; let-bound (hygienic) temporaries because When round-trips its body
+; through syntax->datum and re-anchors every identifier to the call site,
+; which flattens hygiene. So we mint interned-but-unique top-level symbols
+; (gensym printname) that resolve by global name from anywhere, and a
+; unique ?-prefixed logic var for the injected (time now) clock.
+(define-syntax Collect
+  (lambda (stx)
+    (syntax-case stx (emit as do)
+      ((_ (cnd ...) emit e as name do body ...)
+       ; Buffer names must be interned so they resolve as top-level bindings
+       ; by global name (When flattens its body through syntax->datum and
+       ; re-anchors). Guile's gensym already returns interned symbols.
+       (let* ((cur   (gensym "collect-cur-"))
+              (prv   (gensym "collect-prev-"))
+              (tt    (gensym "collect-t-"))
+              (swp   (gensym "collect-swap-"))
+              ; a logic var (?-prefixed) for the per-frame clock; unique so
+              ; it never collides with a ?var in the user's query/body.
+              (clk   (string->symbol
+                       (string-append "?" (symbol->string (gensym "collect-clk-")))))
+              (conds (syntax->datum #'(cnd ...)))
+              (emitd (syntax->datum #'e))
+              (named (syntax->datum #'name))
+              (bodyd (syntax->datum #'(body ...)))
+              ; MAP rule: user conds + injected clock; swap then accumulate.
+              (acc-conds (append conds (list (list 'time 'now clk))))
+              (acc-body  (list (list swp clk)
+                               (list 'set! cur (list 'cons emitd cur))))
+              ; REDUCE rule: clock only; swap, bind name=prev, run body.
+              (con-conds (list (list 'time 'now clk)))
+              (con-body  (list (list swp clk)
+                               (cons 'let
+                                     (cons (list (list named prv)) bodyd))))
+              (form
+                `(begin
+                   (define ,cur (quote ()))
+                   (define ,prv (quote ()))
+                   (define ,tt 0)
+                   (define (,swp t)
+                     (if (not (equal? t ,tt))
+                         (begin (set! ,prv ,cur)
+                                (set! ,cur (quote ()))
+                                (set! ,tt t))))
+                   (When ,acc-conds do ,@acc-body)
+                   (When ,con-conds do ,@con-body))))
+         (datum->syntax stx form))))))
+
 ; redefine dl-fixpoint! injecting code execution as result of rules.
 ; Semi-naive: only re-evaluate rules whose body attrs intersect with
 ; the deltas of the previous iteration. See datalog.scm for the

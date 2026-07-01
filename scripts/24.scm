@@ -39,6 +39,7 @@
  do (case ?key
        ((48)  (Wish ?editor 'edits '((start-of-line))))   ; 0
        ((36)  (Wish ?editor 'edits '((end-of-line))))     ; $
+       ((100) (Wish ?editor 'edits '((delete-line))))     ; d
        ((104) (Wish ?editor 'edits '((forward-char -1)))) ; h
        ((106) (Wish ?editor 'edits '((forward-line 1))))  ; j
        ((107) (Wish ?editor 'edits '((forward-line -1)))) ; k
@@ -68,6 +69,7 @@
        (?editor editing ?p)
        (key down ?key))
  do (case ?key
+      ; todo: don't delete-char if we start on cursor-x = 0
       ((127) (Wish ?editor 'edits '((forward-char -1) (delete-char 1)))) ; backspace
       ((13)  (Wish ?editor 'edits '((new-line)))) ; newline
       ((27)  (Wish ?editor 'edits '((change-mode command)))) ; escape

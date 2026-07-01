@@ -3,6 +3,9 @@
 ; only supports floating point params with a min/max
 ; todo: at least enums, set amount of possible values
 
+; make parameters visible on the table to interact with
+(Wish 'parameters 'are 'drawn)
+
 (define (center-point ulhc lrhc)
   (let ((diagonal (vec-from-to ulhc lrhc)))
     (vec->ints (vec-add ulhc (vec-mul diagonal 0.5)))))
@@ -15,6 +18,7 @@
 ; MAP each parameter region to (distance-from-page-centre . region-id),
 ; REDUCE picks the nearest and claims it as the dial being adjusted.
 ; One frame of latency, same as the hand-rolled prev/curr buffer was.
+; TODO: max distance?
 (Collect ((this (page points) (?ulhc ?urhc ?llhc ?lrhc))
           (?r (region name) parameter)
           (?r (region center) ?c))

@@ -225,16 +225,17 @@
 (define (free-images . imgs)
   (for-each (lambda (x) (free-image x)) imgs))
 
-(define (rotate-region-img! img mask ulhc lrhc rotation)
-  (if (not (zero? rotation))
-    (let* ((center (vec->ints (vec-add ulhc (vec-mul (vec-from-to ulhc lrhc) 0.5))))
-           (cx (car center)) (cy (cdr center))
-           (minv (rotation-matrix-2d cx cy (- rotation) 1.0))
-           (w (image-cols img))
-           (h (image-rows img)))
-      (warp-affine img img minv w h)
-      (warp-affine mask mask minv w h)
-      (free-image minv))))
+; Rotate an image (and its mask) in place around the point (cx,cy) given in
+; the image's OWN coordinates. Output stays the same size, so the caller must
+; ensure the image is big enough to hold the rotated content (see
+; draw-mat-onto-region, which rotates inside a diagonal-sized local canvas).
+(define (rotate-local-img! img mask cx cy rotation)
+  (let ((minv (rotation-matrix-2d cx cy (- rotation) 1.0))
+        (w (image-cols img))
+        (h (image-rows img)))
+    (warp-affine img img minv w h)
+    (warp-affine mask mask minv w h)
+    (free-image minv)))
 
 (define (draw-mat-onto-region-opaque src dst rotation ulhc lrhc)
   (let* ((w (image-cols src)) (h (image-rows src))
@@ -243,22 +244,47 @@
     (draw-mat-onto-region src dst mask rotation ulhc lrhc)
     (free-image mask)))
 
-; assumes everything is axis-aligned and needs to be rotated
+; Draw SRC (an axis-aligned image) onto DST, scaled to the region
+; ulhc..lrhc (given as the region's UNROTATED corners) and rotated by ROTATION
+; around the region centre.
+;
+; The rotation is done inside a private local canvas that is large enough to
+; hold the rotated rectangle, and clipping to the screen happens ONLY at the
+; final composite onto DST. Earlier this rotated on a screen-sized canvas and
+; clipped the axis-aligned rectangle to the screen BEFORE rotating — so any
+; part of the (un-rotated) rectangle that fell off-screen was discarded and
+; then rotated into view as a missing edge, with the cut varying by rotation.
 (define (draw-mat-onto-region src dst mask rotation ulhc lrhc)
   (let* ((ulhcx (car ulhc)) (ulhcy (cdr ulhc))
          (dx (- (car lrhc) ulhcx)) (dy (- (cdr lrhc) ulhcy))
-         (dst-w (image-cols dst)) (dst-h (image-rows dst))
-         (timg (create-image dst-w dst-h 16))
-         (tmask (create-image dst-w dst-h 0))
          (simg (create-image dx dy 16))
          (smask (create-image dx dy 0)))
-      (resize src simg dx dy 0 0 3)
-      (resize mask smask dx dy 0 0 0)
-      (place-clipped! simg smask timg tmask ulhcx ulhcy)
-      (rotate-region-img! timg tmask ulhc lrhc rotation)
-      (draw-image timg dst tmask)
-      (free-images timg tmask simg smask)))
+    (resize src simg dx dy 0 0 3)
+    (resize mask smask dx dy 0 0 0)
+    (if (zero? rotation)
+        ; Fast path: no rotation, drop straight onto dst (clipped to screen).
+        (place-clipped! simg smask dst #f ulhcx ulhcy)
+        ; Rotated path: centre the content in a local canvas whose side is the
+        ; rectangle's diagonal (the rotated AABB never exceeds the diagonal in
+        ; either dimension, so nothing spills out), rotate around that centre,
+        ; then place onto dst so the local centre lands on the region centre.
+        (let* ((s   (+ 2 (inexact->exact
+                           (ceiling (sqrt (+ (* dx dx) (* dy dy)))))))
+               (ox  (quotient (- s dx) 2)) (oy (quotient (- s dy) 2))
+               (lcx (+ ox (quotient dx 2))) (lcy (+ oy (quotient dy 2)))
+               (limg  (create-image s s 16))
+               (lmask (create-image s s 0)))
+          (place-clipped! simg smask limg lmask ox oy)
+          (rotate-local-img! limg lmask lcx lcy rotation)
+          ; place local (ox,oy) — the content's top-left — at dst (ulhcx,ulhcy)
+          (place-clipped! limg lmask dst #f (- ulhcx ox) (- ulhcy oy))
+          (free-images limg lmask)))
+    (free-images simg smask)))
 
+; Copy SIMG (masked by SMASK) into TIMG at offset (ox,oy), clipping to TIMG's
+; bounds. TMASK, if non-#f, records the copied footprint (used when TIMG will
+; itself be composited later); pass #f when TIMG is the final destination and
+; no footprint mask is needed.
 (define (place-clipped! simg smask timg tmask ox oy)
   (let* ((sw (image-cols simg)) (sh (image-rows simg))
          (dw (image-cols timg)) (dh (image-rows timg))
@@ -269,11 +295,13 @@
     (when (and (positive? cw) (positive? ch))
       (let ((s-roi  (region simg  (- x0 ox) (- y0 oy) cw ch))   ; crop of source
             (sm-roi (region smask (- x0 ox) (- y0 oy) cw ch))
-            (t-roi  (region timg  x0 y0 cw ch))                 ; same-size dest
-            (tm-roi (region tmask x0 y0 cw ch)))
-        (draw-image s-roi  t-roi  sm-roi)   ; content → timg  (where mask set)
-        (draw-image sm-roi tm-roi sm-roi)   ; footprint → tmask
-        (free-images s-roi sm-roi t-roi tm-roi)))))
+            (t-roi  (region timg  x0 y0 cw ch)))                ; same-size dest
+        (draw-image s-roi t-roi sm-roi)     ; content → timg  (where mask set)
+        (when tmask
+          (let ((tm-roi (region tmask x0 y0 cw ch)))
+            (draw-image sm-roi tm-roi sm-roi)   ; footprint → tmask
+            (free-image tm-roi)))
+        (free-images s-roi sm-roi t-roi)))))
 
 
 ; todo: abstract this into draw-text, with args left-aligned/centered and wrap yes/no

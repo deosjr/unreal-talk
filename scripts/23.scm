@@ -54,8 +54,14 @@
             (iota (length sorted)))))
         page-params)))
 
-; TODO: only draw params when someone wants us to draw params?
-(When ((?p (region parameter) ?r)
+; NOTE: this syntax only works with some assumptions on ?e ?attr and ?v
+; TODO: does this need to be deduped for multiple wishers or does Claim do that?
+; I think the Claim already takes care of that tbh
+(When ((?someone wishes (parameters are drawn)))
+ do (Claim this 'draws 'parameters))
+
+(When ((this draws parameters)
+       (?p (region parameter) ?r)
        (?r (region unrotated) (?ulhc ?urhc ?llhc ?lrhc))
        (?r (region rotation) ?rotation)
        (?r (region parameter) ?paramid)

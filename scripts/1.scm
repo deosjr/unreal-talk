@@ -44,6 +44,7 @@
     ((forward-char) (forward-char (cadr op)))
     ((forward-line) (forward-line (cadr op)))
     ((delete-char) (delete-char (cadr op)))
+    ((delete-line) (delete-line))
     ((insert) (insert (cadr op)))
     ((new-line) (new-line))
     ((save) (save))
@@ -84,7 +85,7 @@
   (let* ((code-len (length buffer))
          (line (list-ref buffer line-num))
          (line-len (string-length line)))
-  (if (< cursor-x (- line-len 1))
+  (if (< cursor-x line-len)
     (let* ((left (substring/copy line 0 cursor-x))
            (right (substring/copy line (+ cursor-x 1) line-len))
            (new-line (string-append left right)))
@@ -107,6 +108,13 @@
     (set! buffer (append before (list left right) after))
     (forward-line 1)
     (start-of-line)))
+
+(define (delete-line)
+  (if (= 1 (length buffer))
+    (set! buffer '(""))
+    (let ((before (list-head buffer line-num))
+          (after (list-tail buffer (+ line-num 1))))
+      (set! buffer (append before after)))))
 
 (define (save)
   (save-page pageid (string-join buffer "\n")))
@@ -169,7 +177,7 @@
          (lR (car line-color)) (lG (cadr line-color)) (lB (caddr line-color))
          (cR (car cursor-color)) (cG (cadr cursor-color)) (cB (caddr cursor-color)))
     (draw-rectangle img 0 0 dx dy bgR bgG bgB -1) ; background
-    (draw-rectangle img 0 line-y dy (+ line-y line-height) lR lG lB -1) ; current line
+    (draw-rectangle img 0 line-y dx (+ line-y line-height) lR lG lB -1) ; current line
     (draw-rectangle img cx line-y (+ cx char-width) (+ line-y line-height) cR cG cB -1))) ; cursor
 
 ; editor is unrotated, i.e. axis-aligned with ulhc at upper left-hand corner

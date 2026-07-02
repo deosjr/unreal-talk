@@ -14,15 +14,6 @@ APRILTAG_DIR := ../apriltag
 APRILTAG_IMGS_DIR := ../apriltag-imgs
 APRILTAG_BUILD := $(APRILTAG_DIR)/build
 
-CGO_CFLAGS := $(shell guile-config compile)
-# -Wl,-rpath bakes the AprilTag build directory into the binary as a
-# runtime library search path. Replaces the previous install_name_tool
-# step (which hardcoded a user-specific absolute path) on macOS; works
-# on Linux too.
-CGO_LDFLAGS := $(shell guile-config link) -Wl,-rpath,$(abspath $(APRILTAG_BUILD))
-export CGO_CFLAGS
-export CGO_LDFLAGS
-
 # Detect platform-specific shared-library suffix.
 UNAME := $(shell uname)
 ifeq ($(UNAME),Darwin)
@@ -47,8 +38,11 @@ setup-deps:
 # Build the OpenCV wrapper shared lib and the Go binary.
 # ---------------------------------------------------------------------
 
+# cvmat_wrapper.cpp lives in cvwrapper/ (not the package root) so that
+# `go build` doesn't also compile it into the Go binary via cgo — it is
+# only ever loaded by Guile at runtime as a shared library.
 build-opencv:
-	g++ -std=c++17 -fPIC -shared -o libcvmatwrapper.$(SHLIB_SUFFIX) cvmat_wrapper.cpp `pkg-config --cflags --libs opencv4`
+	g++ -std=c++17 -fPIC -shared -o libcvmatwrapper.$(SHLIB_SUFFIX) cvwrapper/cvmat_wrapper.cpp `pkg-config --cflags --libs opencv4`
 
 build-go:
 	go build -o main .

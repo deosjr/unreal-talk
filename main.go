@@ -1,9 +1,9 @@
 package main
 
 /*
-#cgo CFLAGS: -I../apriltag
-#cgo LDFLAGS: -L../apriltag/build -lapriltag
-#cgo pkg-config: opencv4
+#cgo CFLAGS: -I${SRCDIR}/../apriltag
+#cgo LDFLAGS: -L${SRCDIR}/../apriltag/build -lapriltag -Wl,-rpath,${SRCDIR}/../apriltag/build
+#cgo pkg-config: guile-3.0
 
 #include "detect_tags.h"
 #include "../apriltag/apriltag.h"
@@ -18,6 +18,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"os"
 	"runtime"
 	"sort"
 	"time"
@@ -61,6 +62,22 @@ func main() {
 		webcam.Set(gocv.VideoCaptureFocus, 100.0)		// 0-255 ?
 		webcam.Set(gocv.VideoCaptureExposure, -3.0)		// ?
 	*/
+
+	// the homography only holds at the resolution the webcam was calibrated at;
+	// at any other resolution tag corners silently fail the projection bounds check
+	probe := gocv.NewMat()
+	if ok := webcam.Read(&probe); !ok || probe.Empty() {
+		fmt.Println("cannot read frame from webcam")
+		os.Exit(1)
+	}
+	if probe.Cols() != cr.WebcamDimensions.X || probe.Rows() != cr.WebcamDimensions.Y {
+		fmt.Printf("webcam resolution %dx%d does not match calibrated resolution %dx%d\n",
+			probe.Cols(), probe.Rows(), cr.WebcamDimensions.X, cr.WebcamDimensions.Y)
+		fmt.Println("pin the camera to the calibrated resolution (e.g. in Logitech G HUB) or re-run `make calibrate`")
+		probe.Close()
+		os.Exit(1)
+	}
+	probe.Close()
 
 	window := gocv.NewWindow("Webcam")
 	defer window.Close()

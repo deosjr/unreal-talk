@@ -58,7 +58,7 @@ make build-opencv   # builds libcvmatwrapper.dylib
 make build-go       # builds ./main
 ```
 
-`build-opencv` compiles `cvmat_wrapper.cpp` into a shared library that
+`build-opencv` compiles `cvwrapper/cvmat_wrapper.cpp` into a shared library that
 Guile loads via FFI to talk to `cv::Mat`. `build-go` produces the main
 binary; the runtime AprilTag dylib lookup is baked in via `-Wl,-rpath`
 to `../apriltag/build`, so the binary finds its libs automatically with

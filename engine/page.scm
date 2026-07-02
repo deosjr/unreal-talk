@@ -23,17 +23,19 @@
     (hash-set! *procs* pid proc)
     pid))
 
-; make page dimensions known in datalog
+; make page dimensions known in datalog. Geometry comes from the camera,
+; not from any page, so it is claimed by the engine (engine-assert! in
+; scene.scm) — a provenance query on page points answers 'engine.
 (define (update-page-geometry pid points rotation)
     (retract-page-geometry pid)
-    (dl-assert! dl pid '(page points) points)
-    (dl-assert! dl pid '(page rotation) rotation))
+    (engine-assert! pid '(page points) points)
+    (engine-assert! pid '(page rotation) rotation))
 
 (define (retract-page-geometry pid)
   (let ((points   (dl-query dl ((,pid (page points) ?x)) ?x))
         (rotation (dl-query dl ((,pid (page rotation) ?x)) ?x)))
-    (if (not (null? points)) (dl-retract! dl `(,pid (page points) ,(car points))))
-    (if (not (null? rotation)) (dl-retract! dl `(,pid (page rotation) ,(car rotation))))))
+    (if (not (null? points)) (engine-retract! pid '(page points) (car points)))
+    (if (not (null? rotation)) (engine-retract! pid '(page rotation) (car rotation)))))
 
 ; Clear any 'has-error facts attached to PID. Used both on successful
 ; recompile (to drop a stale error sticking around from a previous bad
@@ -74,8 +76,15 @@
     (for-each (lambda (claim) (dl-retract! dl claim)) claims)
     (for-each (lambda (claim) (dl-retract! dl `(,pid claims ,claim))) claims)
     (for-each (lambda (wish) (dl-retract! dl `(,pid wishes ,wish))) wishes)
-    (for-each (lambda (rule) (dl-retract-rule! dl rule)) rules)
-    (for-each (lambda (rule) (dl-retract! dl `(,pid rules ,rule))) rules)))
+    ; rules shows rule-IDS (the page's introspection claims); the claims
+    ; loop above already retracted those facts — here we retract the rule
+    ; RECORDS from the rdb and clean the id-keyed side tables.
+    (for-each (lambda (rule-id)
+                (let ((rule (hash-ref *rules-by-id* rule-id #f)))
+                  (if rule (dl-retract-rule! dl rule)))
+                (hash-remove! *rules-by-id* rule-id)
+                (dl-drop-rule-stats! rule-id))
+              rules)))
 
 (define (execute-page pid)
   (let ((proc (hash-ref *procs* pid #f)))

@@ -23,6 +23,12 @@
 ; the hook that actually runs rule bodies.
 ; ----------------------------------------------------------------------
 
+; rule-id -> <dl-rule>, so page teardown (page.scm) can retract the rule
+; record from the rdb given only the id that scripts see in the fact
+; space. Entries are removed by page-moved-from-table, so this doesn't
+; leak across page arrivals.
+(define *rules-by-id* (make-hash-table))
+
 ; The page id. Outside page code it is an expand-time error; make-page-code
 ; binds it to the page the code runs as, and When re-binds it inside rule
 ; bodies to the entity the rule fired on (the same page id in practice).
@@ -55,13 +61,25 @@
 ; A rule with side effects. Compiles to a <dl-rule> (datalog.scm) whose
 ; produce emits, per match, the tuple
 ;
-;   (this 'code (body-proc ?var1-value ?var2-value ...))
+;   (this 'code (rule-id body-proc ?var1-value ?var2-value ...))
 ;
 ; with body-proc the rule's body wrapped as (lambda (self ?var1 ...)).
 ; The fixpoint's new-tuple dedup means the body runs once per distinct
 ; binding per fixpoint; engine/fixpoint.scm's hook recognizes the tuple
 ; shape and applies body-proc — the When macro never executes the body
-; directly.
+; directly. The rule-id rides along so firings can be attributed to the
+; rule in the per-frame stats.
+;
+; Registration also claims introspection facts AS THE PAGE (they go
+; through the ordinary Claim bookkeeping, so page teardown retracts them
+; and provenance queries answer correctly):
+;
+;   (this rules ?rule-id)
+;   (?rule-id (rule source) (When ...))   ; the full source form
+;   (?rule-id (rule attrs) (...))
+;
+; Per-frame stats facts about ?rule-id — (rule matches), (rule fired),
+; (rule time-ms) — are engine-claimed by scene.scm, one frame stale.
 ;
 ; Condition surface syntax: a small DSL where
 ;   ?var          -> a pattern variable (bound by matching)
@@ -128,16 +146,23 @@
                                           (syntax-violation
                                             'When "nested When is not supported" s))))
                               statement ...)))
+                    (rule-id (gensym "rule-"))
                     (rule (make-dl-rule
+                            rule-id
                             #,(list #'quasiquote tpl)
                             #,n
                             ; args in slot order = cond-vars order = the
                             ; body lambda's parameter order
-                            (lambda (env) (list this 'code (cons code (vector->list env))))
+                            (lambda (env)
+                              (list this 'code (cons rule-id (cons code (vector->list env)))))
                             '#,(datum->syntax stx rule-attrs)
-                            '#,(datum->syntax stx (syntax->datum #'((cx condition cy) ...))))))
-               (dl-assert! (get-dl) this 'rules rule)
-               (dl-assert-rule! (get-dl) rule))))))))
+                            '#,(datum->syntax stx (syntax->datum stx)))))
+               (hash-set! *rules-by-id* rule-id rule)
+               (dl-assert-rule! (get-dl) rule)
+               ; introspection facts, claimed as this page (torn down with it)
+               (Claim this 'rules rule-id)
+               (Claim rule-id '(rule source) '#,(datum->syntax stx (syntax->datum stx)))
+               (Claim rule-id '(rule attrs) '#,(datum->syntax stx rule-attrs)))))))))
 
 ; Used by the When macro to implement Claim/Wish *inside* a rule body.
 ; Mirror of Claim/Wish but routed through dl-assert-derived! so writes

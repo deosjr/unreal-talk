@@ -68,8 +68,9 @@
 (check "When: derives one Claim per matching tuple"
        (vals 'wp 'saw) (as-set '(a b)))
 
+;; registration also claims rule-introspection facts, so filter to 'saw
 (check "When: also records the claim under (this claims ...)"
-       (vals 'wp 'claims)
+       (as-set (filter (lambda (c) (eq? (cadr c) 'saw)) (vals 'wp 'claims)))
        (as-set (list (list 'wp 'saw 'a) (list 'wp 'saw 'b))))
 
 ;;; ----------------------------------------------------------------------
@@ -110,6 +111,50 @@
        (vals 'cg 'gcount) '(2))
 (check "Collect: frame 2 no longer Claims isempty (set non-empty)"
        (vals 'cg 'isempty) '())
+
+;;; ----------------------------------------------------------------------
+;;; Introspection — rules and fixpoint stats visible as facts.
+;;;
+;;; Registration claims (?p rules ?r) / (?r (rule source) ...) as the
+;;; page; publish-fixpoint-stats (scene.scm) engine-claims the previous
+;;; fixpoint's counters. In the live system publication happens at frame
+;;; start in receive-pages-found; here we call it directly after the
+;;; last dl-fixpoint! above (frame 2 of the Collect test).
+;;; ----------------------------------------------------------------------
+
+(define wp-rules (dl-query dl ((wp rules ?r)) ?r))
+
+(check "introspect: page wp owns exactly one rule" (length wp-rules) 1)
+(check "introspect: page cg owns two rules (Collect = map + reduce)"
+       (length (dl-query dl ((cg rules ?r)) ?r)) 2)
+
+(define wp-rule (car wp-rules))
+
+(check "introspect: rule source is the full When form"
+       (car (car (dl-query dl ((,wp-rule (rule source) ?s)) ?s)))
+       'When)
+(check "introspect: rule attrs claimed"
+       (dl-query dl ((,wp-rule (rule attrs) ?a)) ?a)
+       '((kind)))
+
+(publish-fixpoint-stats)
+
+(check "introspect: fired count = body invocations last fixpoint"
+       (dl-query dl ((,wp-rule (rule fired) ?n)) ?n)
+       '(2))
+(check "introspect: fixpoint iteration count is a positive fact"
+       (positive? (car (dl-query dl ((fixpoint iterations ?n)) ?n)))
+       #t)
+(check "introspect: stats facts are engine-claimed"
+       (not (null? (dl-query dl ((engine claims (,wp-rule (rule fired) ?n))) ?n)))
+       #t)
+
+;;; teardown: a page leaving takes its rules AND their metadata with it
+(page-moved-from-table 'wp)
+(check "introspect: teardown retracts rule metadata"
+       (append (dl-query dl ((wp rules ?r)) ?r)
+               (dl-query dl ((,wp-rule (rule source) ?s)) ?s))
+       '())
 
 ;;; ----------------------------------------------------------------------
 ;;; summary / exit code

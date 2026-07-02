@@ -247,15 +247,20 @@
 ; Rules.
 ; ----------------------------------------------------------------------
 
+; id       - a fresh symbol naming the rule. Used as the EAV entity for
+;            the rule's introspection facts ((?id (rule source) ...),
+;            per-frame stats) and as the stats key. Scripts treat it as
+;            an opaque handle found via (?page rules ?id).
 ; patterns - compiled condition triples (with <pvar>s)
 ; nvars    - environment size
 ; produce  - (lambda (env) tuple): builds the derived tuple per match
 ; attrs    - list of attr datums the conditions match on, or 'any when an
 ;            attr contains a variable (can't be predicted -> always eligible)
-; source   - the source datum of the conditions, for printing/introspection
+; source   - the source datum of the rule, for printing/introspection
 (define-record-type <dl-rule>
-  (make-dl-rule patterns nvars produce attrs source)
+  (make-dl-rule id patterns nvars produce attrs source)
   dl-rule?
+  (id       dl-rule-id)
   (patterns dl-rule-patterns)
   (nvars    dl-rule-nvars)
   (produce  dl-rule-produce)
@@ -268,16 +273,63 @@
 (define (dl-retract-rule! dl rule)
   (hash-remove! (datalog-rdb dl) rule))
 
+; ----------------------------------------------------------------------
+; Fixpoint statistics.
+;
+; Cheap counters recorded while the fixpoint runs; engine/scene.scm
+; publishes them as engine-claimed facts at the START of the next frame
+; (never mid-fixpoint — a stats fact appearing during the monotone run
+; would trigger rules and change the very numbers being measured). Stats
+; are therefore one frame stale, the same contract as Collect.
+;
+; Per rule: matches  = tuples produced by the join (under semi-naive
+;                      evaluation this can count a derivation once per
+;                      delta position — read it as relative load, and
+;                      note that duplicates are deduped before bodies run)
+;           fired    = body invocations (new code tuples; exact)
+;           time-ms  = wall time spent in the rule's joins
+;
+; Thread-safety: cells are created serially (at the dl-fixpoint! reset
+; and in the serial body-run hook); the par-mapped dl-apply-rule only
+; writes to its own rule's pre-existing cell. A rule registered
+; mid-fixpoint (e.g. by a save) has no cell yet and simply isn't counted
+; until the next frame.
+; ----------------------------------------------------------------------
+
+(define *fixpoint-iterations* 0)
+(define *fixpoint-new-facts* 0)
+(define *rule-stats* (make-hash-table))   ; rule-id -> #(matches fired time-ms)
+
+(define (dl-rule-stats id)
+  (or (hash-ref *rule-stats* id #f) (vector 0 0 0.0)))
+
+(define (dl-drop-rule-stats! id)
+  (hash-remove! *rule-stats* id))
+
+; Called (serially) by the body-run hook in engine/fixpoint.scm.
+(define (dl-note-fired! id)
+  (let ((cell (or (hash-ref *rule-stats* id #f)
+                  (let ((v (vector 0 0 0.0)))
+                    (hash-set! *rule-stats* id v)
+                    v))))
+    (vector-set! cell 1 (+ 1 (vector-ref cell 1)))))
+
+(define (current-ms)
+  (let ((t (gettimeofday)))
+    (+ (* 1000.0 (car t)) (/ (cdr t) 1000.0))))
+
 ; All derived tuples for RULE. With PREV-DELTA (attr -> tuples of the
 ; previous iteration): the semi-naive union over delta positions — one
 ; join per condition, that condition restricted to the delta. Duplicates
 ; across positions are deduped downstream by the fixpoint's fact set.
 ; Without PREV-DELTA (#f): one full join (first iteration).
 (define (dl-apply-rule dl rule prev-delta)
-  (let ((patterns (dl-rule-patterns rule))
-        (produce  (dl-rule-produce rule))
-        (nvars    (dl-rule-nvars rule))
-        (out      '()))
+  (let* ((patterns (dl-rule-patterns rule))
+         (produce  (dl-rule-produce rule))
+         (nvars    (dl-rule-nvars rule))
+         (cell     (hash-ref *rule-stats* (dl-rule-id rule) #f))
+         (t0       (if cell (current-ms) 0))
+         (out      '()))
     (define (collect delta-pos)
       (let ((env (make-env nvars)))
         (run-join dl patterns env
@@ -289,6 +341,9 @@
             (collect i)
             (loop (+ i 1) (cdr cs))))
         (collect #f))
+    (when cell
+      (vector-set! cell 0 (+ (vector-ref cell 0) (length out)))
+      (vector-set! cell 2 (+ (vector-ref cell 2) (- (current-ms) t0))))
     out))
 
 ; Eligibility: skip rules none of whose attrs saw a new fact last
@@ -319,6 +374,13 @@
 (define (dl-fixpoint! dl)
   (for-each (lambda (fact) (dl-retract! dl fact)) (hashtable-keys (datalog-idb dl)))
   (set-datalog-idb! dl (make-hash-table))
+  ; reset stats: fresh cells for every registered rule (serial — this is
+  ; also what makes the par-mapped writes in dl-apply-rule safe)
+  (set! *fixpoint-iterations* 0)
+  (set! *fixpoint-new-facts* 0)
+  (hash-for-each
+    (lambda (rule _) (hash-set! *rule-stats* (dl-rule-id rule) (vector 0 0 0.0)))
+    (datalog-rdb dl))
   (reset-delta!)
   (dl-fixpoint-iterate dl #f))
 
@@ -330,6 +392,8 @@
           (let* ((facts (par-map (lambda (rule) (dl-apply-rule dl rule prev-delta)) rules))
                  (factset (fold (lambda (fs acc) (set-extend! acc fs)) (make-hash-table) facts))
                  (new (hashtable-keys (set-difference factset (datalog-idb dl)))))
+            (set! *fixpoint-iterations* (+ 1 *fixpoint-iterations*))
+            (set! *fixpoint-new-facts* (+ *fixpoint-new-facts* (length new)))
             (set-extend! (datalog-idb dl) new)
             (for-each (lambda (fact) (dl-update-indices! dl fact)) new)
             (*fixpoint-new-facts-hook* dl new)
@@ -379,13 +443,16 @@
           (else #f)))
 
   ; All distinct logic-var identifiers in TREE, reverse first-seen order
-  ; (callers reverse). Skips (quote ...) subtrees; descends into unquote
+  ; (callers reverse). Skips (quote ...) subtrees, and (dl-query ...)
+  ; subtrees — a query inside a When body binds its own vars, so they
+  ; must not look unbound to When's body check. Descends into unquote
   ; so ,?x-style vars are found too. bound-identifier=? dedup keeps a
   ; macro-introduced ?x distinct from a user-written ?x (they get
   ; separate slots even though they spell the same symbol).
   (define (collect-pattern-vars tree acc)
-    (syntax-case tree (quote)
+    (syntax-case tree (quote dl-query)
       ((quote _) acc)
+      ((dl-query . _) acc)
       ((a . d) (collect-pattern-vars #'d (collect-pattern-vars #'a acc)))
       (id (syntax-logic-var? #'id)
           (if (find (lambda (v) (bound-identifier=? v #'id)) acc)
@@ -468,6 +535,7 @@
                                  'any attr-datums)))
            #`(dl-assert-rule! dl
                (make-dl-rule
+                 (gensym "rule-")
                  #,(list #'quasiquote body-tpl)
                  #,n
                  (let ((head #,(list #'quasiquote head-tpl)))

@@ -3,9 +3,10 @@
 ;
 ; datalog.scm's fixpoint calls *fixpoint-new-facts-hook* with each
 ; iteration's newly derived tuples after they are indexed. When rules
-; (engine/dsl.scm) derive (this code (proc . args)) tuples; this hook
-; recognizes them and applies proc — that's where the bodies' side
-; effects run. The new-tuple dedup upstream means a body fires once per
+; (engine/dsl.scm) derive (this code (rule-id proc . args)) tuples; this
+; hook recognizes them and applies proc — that's where the bodies' side
+; effects run — and notes the firing against rule-id for the per-frame
+; stats. The new-tuple dedup upstream means a body fires once per
 ; distinct binding per fixpoint. Tuples of any other shape (pure
 ; dl-rule! heads) pass through untouched.
 ;
@@ -22,10 +23,14 @@
     (for-each
       (lambda (c)
         (when (and (pair? c) (pair? (cdr c)) (eq? (cadr c) 'code)
-                   (pair? (cddr c)) (pair? (caddr c)) (procedure? (caaddr c)))
-          (let ((this (car c))
-                (proc (caaddr c))
-                (args (cdaddr c)))
+                   (pair? (cddr c)) (pair? (caddr c))
+                   (pair? (cdaddr c)) (procedure? (cadr (caddr c))))
+          (let* ((this (car c))
+                 (payload (caddr c))     ; (rule-id proc . args)
+                 (rule-id (car payload))
+                 (proc (cadr payload))
+                 (args (cddr payload)))
+            (dl-note-fired! rule-id)
             (catch #t
               (lambda () (apply proc this args))
               (lambda (key . eargs)

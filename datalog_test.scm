@@ -54,26 +54,20 @@
 
 ;; All values V such that (E ATTR V) holds, for ground E and ground ATTR.
 (define (q-values dl e attr)
-  (as-set (dl-find (fresh-vars 1 (lambda (v) (dl-findo dl ( (,e ,attr ,v) )))))))
+  (as-set (dl-query dl ((,e ,attr ?v)) ?v)))
 
 ;; All entities E such that (E ATTR _) holds, for ground ATTR.
 (define (q-entities dl attr)
-  (as-set (dl-find (fresh-vars 2 (lambda (e v) (dl-findo dl ( (,e ,attr ,v) )))))))
+  (as-set (dl-query dl ((?e ,attr ?v)) ?e)))
 
 ;; All (attr . value) pairs for a ground entity E (attr left as a variable).
 (define (q-attrs dl e)
-  (as-set (dl-find (fresh-vars 3
-            (lambda (q a v)
-              (conj+ (equalo q (cons a v))
-                     (dl-findo dl ( (,e ,a ,v) ))))))))
+  (as-set (dl-query dl ((,e ?a ?v)) (cons ?a ?v))))
 
 ;; All (regionName . value) pairs for ground entity E where the attr is the
 ;; PARTIAL compound (region <var>). This is the Phase 0 target shape.
 (define (q-regions-of dl e)
-  (as-set (dl-find (fresh-vars 3
-            (lambda (q n v)
-              (conj+ (equalo q (cons n v))
-                     (dl-findo dl ( (,e (region ,n) ,v) ))))))))
+  (as-set (dl-query dl ((,e (region ?n) ?v)) (cons ?n ?v))))
 
 ;;; ----------------------------------------------------------------------
 ;;; fixture
@@ -143,11 +137,11 @@
   (dl-fixpoint! dl)
   ;; nodes reachable from b
   (check "fixpoint: reachable from b"
-         (as-set (dl-find (fresh-vars 2 (lambda (y _) (dl-findo dl ( (,b reachable ,y) ))))))
+         (as-set (dl-query dl ((,b reachable ?y)) ?y))
          (as-set (list a c d e)))
   ;; self-reachable cycle members (the doc example): a, c, d
   (check "fixpoint: nodes on a cycle (self-reachable)"
-         (as-set (dl-find (fresh-vars 1 (lambda (id) (dl-findo dl ( (,id reachable ,id) ))))))
+         (as-set (dl-query dl ((?id reachable ?id)) ?id))
          (as-set (list a c d))))
 
 ;;; ----------------------------------------------------------------------
@@ -176,10 +170,7 @@
   (dl-rule! dl (found-region ,?p ,?n) :- (kind ,?p page) ((region ,?n) ,?p ,?c))
   (dl-fixpoint! dl)
   (check "rule: derive (?p found-region ?n) for every page region"
-         (as-set (dl-find (fresh-vars 3
-                   (lambda (q p n)
-                     (conj+ (equalo q (cons p n))
-                            (dl-findo dl ( (,p found-region ,n) )))))))
+         (as-set (dl-query dl ((?p found-region ?n)) (cons ?p ?n)))
          (as-set (list (cons 'p1 'page-points) (cons 'p1 'editor) (cons 'p1 'outline)
                        (cons 'p2 'page-points) (cons 'p2 'editor)))))
 
@@ -195,10 +186,7 @@
 ;;     excluding the non-region (attribute . value) tuple.
 (let ((dl (make-fixture)))
   (check "open: every (entity . region-name) across all pages"
-         (as-set (dl-find (fresh-vars 4
-                   (lambda (q e n v)
-                     (conj+ (equalo q (cons e n))
-                            (dl-findo dl ( (,e (region ,n) ,v) )))))))
+         (as-set (dl-query dl ((?e (region ?n) ?v)) (cons ?e ?n)))
          (as-set (list (cons 'p1 'page-points) (cons 'p1 'editor) (cons 'p1 'outline)
                        (cons 'p2 'page-points) (cons 'p2 'editor)))))
 
@@ -207,10 +195,7 @@
 ;;     duplicates (guards against the new branch overlapping the others).
 (let ((dl (make-fixture)))
   (check "open: the whole database, once each"
-         (as-set (dl-find (fresh-vars 4
-                   (lambda (q e a v)
-                     (conj+ (equalo q (list e a v))
-                            (dl-findo dl ( (,e ,a ,v) )))))))
+         (as-set (dl-query dl ((?e ?a ?v)) (list ?e ?a ?v)))
          (as-set (list (list 'p1 '(region page-points) 'pp1)
                        (list 'p1 '(region editor)      'ed1)
                        (list 'p1 '(region outline)     'ol1)

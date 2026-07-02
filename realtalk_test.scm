@@ -43,12 +43,12 @@
 
 ;; All values V such that (E ATTR V) holds in the global dl.
 (define (vals e attr)
-  (as-set (dl-find (fresh-vars 1 (lambda (v) (dl-findo dl ( (,e ,attr ,v) )))))))
+  (as-set (dl-query dl ((,e ,attr ?v)) ?v)))
 
 ;; Set (time now) to T (single-valued: retract any previous tick first).
 (define (set-time! t)
-  (let ((cs (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (time now ,x) )))))))
-    (for-each (lambda (c) (dl-retract! dl `(time now ,c))) cs))
+  (for-each (lambda (c) (dl-retract! dl `(time now ,c)))
+            (dl-query dl ((time now ?x)) ?x))
   (dl-assert! dl 'time 'now t))
 
 ;;; ----------------------------------------------------------------------

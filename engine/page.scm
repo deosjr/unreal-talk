@@ -30,8 +30,8 @@
     (dl-assert! dl pid '(page rotation) rotation))
 
 (define (retract-page-geometry pid)
-  (let (( points (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (,pid (page points) ,x) ))))))
-        ( rotation (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (,pid (page rotation) ,x) )))))))
+  (let ((points   (dl-query dl ((,pid (page points) ?x)) ?x))
+        (rotation (dl-query dl ((,pid (page rotation) ?x)) ?x)))
     (if (not (null? points)) (dl-retract! dl `(,pid (page points) ,(car points))))
     (if (not (null? rotation)) (dl-retract! dl `(,pid (page rotation) ,(car rotation))))))
 
@@ -39,16 +39,16 @@
 ; recompile (to drop a stale error sticking around from a previous bad
 ; save) and when a page leaves the table (cleanup).
 (define (dl-retract-page-errors! pid)
-  (let ((errs (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (,pid has-error ,x) )))))))
-    (for-each (lambda (msg) (dl-retract! dl `(,pid has-error ,msg))) errs)))
+  (for-each (lambda (msg) (dl-retract! dl `(,pid has-error ,msg)))
+            (dl-query dl ((,pid has-error ?x)) ?x)))
 
 ; Retract any existing (pid (page code) _) facts. Used by load-page and
 ; save-page before asserting a new value, so the (page code) attribute
 ; behaves like a single-valued slot rather than accumulating every
 ; version the page has ever had.
 (define (dl-retract-page-code! pid)
-  (let ((strs (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (,pid (page code) ,x) )))))))
-    (for-each (lambda (str) (dl-retract! dl `(,pid (page code) ,str))) strs)))
+  (for-each (lambda (str) (dl-retract! dl `(,pid (page code) ,str)))
+            (dl-query dl ((,pid (page code) ?x)) ?x)))
 
 ; only run page code when newly in bounds of table.
 ; Wrapped: page top-level code that throws (bad Claim args, undefined
@@ -68,9 +68,9 @@
 (define (page-moved-from-table pid)
   (retract-page-geometry pid)
   (dl-retract-page-errors! pid)
-  (let (( claims (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (,pid claims ,x) ))))))
-        ( wishes (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (,pid wishes ,x) ))))))
-        ( rules  (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (,pid rules ,x) )))))))
+  (let ((claims (dl-query dl ((,pid claims ?x)) ?x))
+        (wishes (dl-query dl ((,pid wishes ?x)) ?x))
+        (rules  (dl-query dl ((,pid rules ?x)) ?x)))
     (for-each (lambda (claim) (dl-retract! dl claim)) claims)
     (for-each (lambda (claim) (dl-retract! dl `(,pid claims ,claim))) claims)
     (for-each (lambda (wish) (dl-retract! dl `(,pid wishes ,wish))) wishes)

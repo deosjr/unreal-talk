@@ -18,14 +18,10 @@
 ;                    produces rules is not designed)
 ; Unlike a body-walking rewrite, the parameterization covers exactly the
 ; body's lexical region — including uses introduced by other macros —
-; and nothing else. See datalog.scm for the engine these sit on top of,
-; and fixpoint.scm for where the rule bodies actually run.
+; and nothing else. See datalog.scm for the engine these sit on top of
+; (rule records, the join, semi-naive evaluation), and fixpoint.scm for
+; the hook that actually runs rule bodies.
 ; ----------------------------------------------------------------------
-
-; Maps a When's generated code-name (a gensym) to the procedure that runs
-; its rule body. The When macro populates it at page-execution time;
-; fixpoint.scm looks each proc up by name and applies it to the bound args.
-(define *rule-procs* (make-hash-table))
 
 ; The page id. Outside page code it is an expand-time error; make-page-code
 ; binds it to the page the code runs as, and When re-binds it inside rule
@@ -56,128 +52,92 @@
 ; ----------------------------------------------------------------------
 ; (When (cond ...) do body ...)
 ;
-; A rule with side effects. Compiles each use site to two cooperating
-; pieces wired together by a unique symbol:
+; A rule with side effects. Compiles to a <dl-rule> (datalog.scm) whose
+; produce emits, per match, the tuple
 ;
-;   1. A `rule` value: a minikanren goal that unifies the result `q` with
-;      a tuple `(this 'code (code-name . args))`. When dl-fixpoint-iterate
-;      runs the rules, satisfying the conditions produces one such tuple
-;      per match, with `args` bound to the logic-var values.
+;   (this 'code (body-proc ?var1-value ?var2-value ...))
 ;
-;   2. A `code` procedure: the rule's body wrapped as
-;      (lambda (self ?var1 ?var2 ...) body...). Stored in *rule-procs*
-;      under code-name. After dl-fixpoint-iterate accumulates new facts
-;      it walks them, looks each proc up by code-name, and applies it
-;      to the bound args. That's where the body's side effects run.
-;
-; So the When macro never executes the body directly — it just packages
-; the body for later application during fixpoint iteration.
+; with body-proc the rule's body wrapped as (lambda (self ?var1 ...)).
+; The fixpoint's new-tuple dedup means the body runs once per distinct
+; binding per fixpoint; engine/fixpoint.scm's hook recognizes the tuple
+; shape and applies body-proc — the When macro never executes the body
+; directly.
 ;
 ; Condition surface syntax: a small DSL where
-;   ?var          -> a logic variable (matched/bound by minikanren)
+;   ?var          -> a pattern variable (bound by matching)
 ;   this          -> the page id (the syntax parameter above)
 ;   anything else -> a literal datum (used as the datalog attr or as
 ;                    a literal structural component of entity/value)
-; No commas. The macro inserts the unquotes that dl-findo's internal
-; quasiquote needs. The body, in contrast, is plain Scheme — logic
-; vars there are just lexical bindings introduced by the rule lambda.
+; No commas needed. The body, in contrast, is plain Scheme — pattern
+; vars there are just lexical bindings introduced by the body lambda.
 ;
-; Implementation: logic vars like ?x ARE ordinary Scheme identifiers
-; (#\? is a legal initial character), so no datum round-trip is needed.
-; We walk the conditions and body as SYNTAX OBJECTS, collect the
-; distinct ?-identifiers in first-seen order, and splice them verbatim
-; as the parameters of both generated lambdas: condition occurrences are
-; bound by the rule goal's lambda, body occurrences by the code lambda.
-; Deduping with bound-identifier=? keeps a macro-introduced ?x distinct
-; from a user-written ?x. The body passes through untouched — full
-; hygiene — which is what lets Collect below be a plain syntax-rules
-; macro. Vars are collected from conds AND body together so a ?var used
-; only in the body still gets a slot; the rule passes it through
-; unbound, minikanren reifies it.
+; Implementation: pattern vars like ?x ARE ordinary Scheme identifiers,
+; collected from the conditions as syntax objects (bound-identifier=?
+; dedup keeps a macro-introduced ?x distinct from a user ?x) and spliced
+; verbatim as the body lambda's parameters — the body passes through
+; untouched, with full hygiene. The pattern itself carries slot indices
+; (<pvar> records via pattern-template in datalog.scm), so variable
+; NAMES never matter at runtime. A ?var used in the body but not in any
+; condition has nothing to bind it — that's an expand-time error.
 ; ----------------------------------------------------------------------
 (define-syntax-parameter When
   (lambda (stx)
-    ; A logic variable: any symbol whose first char is #\?, e.g. ?p, ?color.
-    (define (logic-var-sym? x)
-      (and (symbol? x)
-           (let ((s (symbol->string x)))
-             (and (positive? (string-length s))
-                  (char=? (string-ref s 0) #\?)))))
-    (define (logic-var? id) (logic-var-sym? (syntax->datum id)))
-
-    ; #t when a logic var appears ANYWHERE in DATUM, including nested inside
-    ; a compound attr such as (region ?name). Used for semi-naive eligibility:
-    ; a rule whose attr contains a logic var can't be predicted at expand
-    ; time, so it must be marked 'any (always-eligible).
-    (define (contains-logic-var? datum)
-      (cond ((logic-var-sym? datum) #t)
-            ((pair? datum) (or (contains-logic-var? (car datum))
-                               (contains-logic-var? (cdr datum))))
-            (else #f)))
-
-    ; All distinct logic-var identifiers in TREE, reverse first-seen order
-    ; (callers reverse). The order matters: it fixes the parameter order of
-    ; both the body procedure and the rule's lambda, so the args produced
-    ; by minikanren match up.
-    (define (collect-logic-vars tree acc)
-      (syntax-case tree ()
-        ((a . d) (collect-logic-vars #'d (collect-logic-vars #'a acc)))
-        (id (identifier? #'id)
-            (if (and (logic-var? #'id)
-                     (not (find (lambda (v) (bound-identifier=? v #'id)) acc)))
-                (cons #'id acc)
-                acc))
-        (_ acc)))
-
-    ; Conditions are eventually quasi-quoted by dl-findo, so anything we
-    ; want evaluated (logic vars and `this`) is wrapped in (unquote ...)
-    ; here. Everything else stays literal — the datalog attr keys and the
-    ; literal structural skeleton around bound positions.
-    (define (xform-cond c)
-      (syntax-case c ()
-        ((a . d) (cons (xform-cond #'a) (xform-cond #'d)))
-        (id (and (identifier? #'id)
-                 (or (logic-var? #'id)
-                     (free-identifier=? #'id #'this)))
-            (list #'unquote #'id))
-        (other #'other)))
-
+    ; Reject a literal nested When up front — otherwise the body-var
+    ; check below trips over the inner rule's fresh variables first and
+    ; reports a misleading "not bound by the conditions" error. (Whens
+    ; introduced into the body by other macros are still caught by the
+    ; syntax-parameterize in the emitted code.)
+    (define (check-no-nested-when tree)
+      (syntax-case tree (quote)
+        ((quote _) #t)
+        ((head . rest)
+         (begin
+           (when (and (identifier? #'head)
+                      (free-identifier=? #'head #'When))
+             (syntax-violation 'When "nested When is not supported" stx))
+           (check-no-nested-when #'head)
+           (check-no-nested-when #'rest)))
+        (_ #t)))
     (syntax-case stx (do)
       ((_ ((cx condition cy) ...) do statement ...)
-       (let* ((vars (reverse (collect-logic-vars
-                               #'(((cx condition cy) ...) statement ...) '())))
-              (conds* (xform-cond #'((cx condition cy) ...)))
-              ; Semi-naive: the attr of each condition. If any contains a
-              ; logic var we can't predict at expand time which attrs the
-              ; rule depends on — mark as 'any so the rule is always
-              ; eligible. datum->syntax so the template's #, splice gets a
-              ; proper syntax object, not a raw datum (which the expander
-              ; would reject as "raw symbol in macro output").
-              (body-attrs (syntax->datum #'(condition ...)))
-              (rule-attrs (datum->syntax stx
-                            (if (any contains-logic-var? body-attrs)
-                                'any
-                                body-attrs))))
-         #`(let* ((code (lambda (self #,@vars)
-                          (syntax-parameterize
-                              ((this  (identifier-syntax self))
-                               (Claim (syntax-rules ()
-                                        ((_ i a v) (derived-claim! self i a v))))
-                               (Wish  (syntax-rules ()
-                                        ((_ i a v) (derived-wish! self i a v))))
-                               (When  (lambda (s)
-                                        (syntax-violation
-                                          'When "nested When is not supported" s))))
-                            statement ...)))
-                  (code-name (gensym))
-                  (rule (fresh-vars #,(+ 1 (length vars))
-                          (lambda (q #,@vars)
-                            (conj (equalo q (list this 'code
-                                                  (cons code-name (list #,@vars))))
-                                  (dl-findo (get-dl) #,conds*))))))
-             (hash-set! *rule-procs* code-name code)
-             (dl-assert! (get-dl) this 'rules rule)
-             (dl-assert-rule! (get-dl) rule '#,rule-attrs)))))))
+       (check-no-nested-when #'(statement ...))
+       (let ((cond-vars (reverse (collect-pattern-vars #'((cx condition cy) ...) '())))
+             (body-vars (reverse (collect-pattern-vars #'(statement ...) '()))))
+         (for-each
+           (lambda (bv)
+             (unless (find (lambda (v) (bound-identifier=? v bv)) cond-vars)
+               (syntax-violation 'When
+                 "logic variable in body is not bound by the conditions" stx bv)))
+           body-vars)
+         (let* ((tpl (pattern-template #'((cx condition cy) ...) cond-vars))
+                (n   (length cond-vars))
+                ; Semi-naive eligibility: the attr of each condition, or
+                ; 'any when an attr contains a variable (unpredictable at
+                ; expand time -> always eligible).
+                (body-attrs (syntax->datum #'(condition ...)))
+                (rule-attrs (if (any contains-logic-var? body-attrs)
+                                'any body-attrs)))
+           #`(let* ((code (lambda (self #,@cond-vars)
+                            (syntax-parameterize
+                                ((this  (identifier-syntax self))
+                                 (Claim (syntax-rules ()
+                                          ((_ i a v) (derived-claim! self i a v))))
+                                 (Wish  (syntax-rules ()
+                                          ((_ i a v) (derived-wish! self i a v))))
+                                 (When  (lambda (s)
+                                          (syntax-violation
+                                            'When "nested When is not supported" s))))
+                              statement ...)))
+                    (rule (make-dl-rule
+                            #,(list #'quasiquote tpl)
+                            #,n
+                            ; args in slot order = cond-vars order = the
+                            ; body lambda's parameter order
+                            (lambda (env) (list this 'code (cons code (vector->list env))))
+                            '#,(datum->syntax stx rule-attrs)
+                            '#,(datum->syntax stx (syntax->datum #'((cx condition cy) ...))))))
+               (dl-assert! (get-dl) this 'rules rule)
+               (dl-assert-rule! (get-dl) rule))))))))
 
 ; Used by the When macro to implement Claim/Wish *inside* a rule body.
 ; Mirror of Claim/Wish but routed through dl-assert-derived! so writes

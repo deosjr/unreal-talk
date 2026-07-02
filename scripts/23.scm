@@ -13,8 +13,7 @@
 
 ; Here's a hack to remove: find-all facts with a certain shape
 (define (any-facts? e attr)
-  (let ((facts (dl-find (fresh-vars 1 (lambda (v) (dl-findo (get-dl) ( (,e ,attr ,v) )))))))
-    (not (null? facts))))
+  (not (null? (dl-query (get-dl) ((,e ,attr ?v)) ?v))))
 
 ; we send param-id in the wish to get a region
 ; now we can relate region-id to parameter id

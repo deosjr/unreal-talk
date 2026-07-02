@@ -1,4 +1,39 @@
-(include "minikanren.scm")
+; ----------------------------------------------------------------------
+; An EAV datalog with pattern-matching queries and delta-driven
+; (semi-naive) fixpoint evaluation.
+;
+; Facts are ground (entity attr value) triples; the database only ever
+; contains ground terms, so queries are one-way matches of a pattern
+; against ground tuples — no unification, no logic-variable machinery.
+; A pattern is a triple-shaped tree whose variable positions hold <pvar>
+; records carrying a slot index; an environment is a plain vector of
+; slots. Conjunctive queries run as a depth-first nested-loop join that
+; picks the best index per condition by groundness (see run-join).
+;
+; Rules are <dl-rule> records: compiled condition patterns, a produce
+; procedure (env -> derived tuple), the attrs the body depends on (for
+; eligibility), and the source datum (so rules are printable — pages can
+; introspect them). dl-fixpoint! iterates to a fixpoint semi-naively:
+; each iteration only joins derivations that involve at least one fact
+; from the previous iteration's delta.
+;
+; Surface macros:
+;   (dl-query dl ((e attr v) ...) result-expr)   run a query, collect
+;       result-expr per match. In conditions, ?var binds a variable
+;       (in scope in result-expr), (unquote x) splices a runtime value,
+;       `this` splices the page id inside page code, anything else is a
+;       literal.
+;   (dl-rule! dl (attr e v) :- (attr e v) ...)   assert a pure rule;
+;       same condition syntax (note attr-first order, and vars may be
+;       written ,?x — the unquote around a ?var is optional).
+;
+; The When macro in engine/dsl.scm compiles to the same <dl-rule>
+; representation, with a produce that emits (this code (proc . args))
+; tuples; engine/fixpoint.scm installs *fixpoint-new-facts-hook* to run
+; those bodies. This file stays self-contained (datalog_test.scm loads
+; it without the engine).
+; ----------------------------------------------------------------------
+
 (use-modules (ice-9 threads)
              (ice-9 format)
              (srfi srfi-1)
@@ -19,7 +54,7 @@
   (make-datalog
    (make-hash-table)   ; edb
    (make-hash-table)   ; idb
-   (make-hash-table)   ; rdb
+   (make-hash-table)   ; rdb: rule -> #t
    (make-hash-table)   ; idx-entity
    (make-hash-table)   ; idx-attr
    (make-hash-table)   ; idx-eav
@@ -30,27 +65,94 @@
     (set-datalog-counter! dl n)
     n))
 
+; ----------------------------------------------------------------------
+; Patterns, environments, matching.
+; ----------------------------------------------------------------------
+
+; A pattern variable: a slot index into the environment vector plus the
+; source name (?p, ?color, ...) kept only for printing/introspection.
+(define-record-type <pvar>
+  (make-pvar idx name)
+  pvar?
+  (idx  pvar-idx)
+  (name pvar-name))
+
+; The empty-slot sentinel. A fresh list so it is eq?-unique.
+(define *unbound* (list 'unbound))
+
+(define (make-env nvars) (make-vector nvars *unbound*))
+
+; Replace every bound pvar in P with its value; unbound pvars stay.
+(define (pat-walk p env)
+  (cond ((pvar? p)
+         (let ((v (vector-ref env (pvar-idx p))))
+           (if (eq? v *unbound*) p v)))
+        ((pair? p) (cons (pat-walk (car p) env) (pat-walk (cdr p) env)))
+        (else p)))
+
+; #t when P (typically already walked) contains no unbound pvar.
+(define (pat-ground? p)
+  (cond ((pvar? p) #f)
+        ((pair? p) (and (pat-ground? (car p)) (pat-ground? (cdr p))))
+        (else #t)))
+
+; Match pattern P against ground term V, binding pvars into ENV.
+; Returns the trail (list of slots bound by THIS match — possibly empty,
+; which is still success) or #f on failure. On failure any partial
+; bindings are already undone. Atoms compare with equal?, so strings and
+; numbers match by content.
+(define (match-into! p v env)
+  (let ((trail '()))
+    (define (walk p v)
+      (cond
+        ((pvar? p)
+         (let* ((i (pvar-idx p)) (cur (vector-ref env i)))
+           (if (eq? cur *unbound*)
+               (begin (vector-set! env i v)
+                      (set! trail (cons i trail))
+                      #t)
+               (equal? cur v))))
+        ((pair? p) (and (pair? v) (walk (car p) (car v)) (walk (cdr p) (cdr v))))
+        (else (equal? p v))))
+    (if (walk p v)
+        trail
+        (begin (for-each (lambda (i) (vector-set! env i *unbound*)) trail)
+               #f))))
+
+(define (undo-trail! env trail)
+  (for-each (lambda (i) (vector-set! env i *unbound*)) trail))
+
+; ----------------------------------------------------------------------
+; Asserting facts, indices, and the delta.
+; ----------------------------------------------------------------------
+
 (define (dl-assert! dl entity attr value)
   (hash-set! (datalog-edb dl) (list entity attr value) #t)
   (dl-update-indices! dl (list entity attr value)))
 
 ; sibling of dl-assert! for facts derived during fixpoint: writes to the
 ; IDB (so the next dl-fixpoint! reset can retract them) and to the
-; indices (so dl-findo can match them in subsequent iterations). No EDB
+; indices (so queries can match them in subsequent iterations). No EDB
 ; write — derived facts live for one fixpoint and are re-derived if
 ; their preconditions still hold.
 (define (dl-assert-derived! dl entity attr value)
   (hash-set! (datalog-idb dl) (list entity attr value) #t)
   (dl-update-indices! dl (list entity attr value)))
 
-; Semi-naive bookkeeping: every fact added to the indices pushes its attr
-; into *delta-attrs* for the current iteration. The fixpoint loop reads
-; *delta-attrs* at the end of iteration k to decide which rules to
-; re-evaluate in iteration k+1 — rules whose body attrs don't intersect
-; delta are guaranteed to produce no new outputs and can be skipped.
-(define *delta-attrs* (make-hash-table))
-(define (reset-delta-attrs!)
-  (set! *delta-attrs* (make-hash-table)))
+; Semi-naive bookkeeping: every fact added to the indices lands in
+; *delta*, keyed by attr, for the current iteration. The fixpoint loop
+; reads it at the end of iteration k twice over: rules whose attrs don't
+; intersect the delta are skipped entirely (eligibility), and eligible
+; rules join with one condition at a time restricted to the delta tuples
+; (each new derivation must involve at least one new fact; the rest were
+; all derived in earlier iterations). This also catches EDB facts that
+; rule bodies assert mid-fixpoint — they flow through
+; dl-update-indices! like everything else.
+(define *delta* (make-hash-table))   ; attr -> list of tuples
+(define (reset-delta!)
+  (set! *delta* (make-hash-table)))
+(define (delta-add! attr tuple)
+  (hash-set! *delta* attr (cons tuple (hash-ref *delta* attr '()))))
 
 (define (dl-update-indices! dl tuple)
    (let ((entity (car tuple))
@@ -77,172 +179,161 @@
                             (hash-set! e-bucket attr new)
                             new))))
        (hash-set! a-bucket tuple #t))
-     (hash-set! *delta-attrs* attr #t)))
+     (delta-add! attr tuple)))
 
 (define-syntax dl-record!
    (syntax-rules ()
      ((_ dl type (attr value) ...) (let ((id (dl-next-id! dl)))
        (dl-assert! dl id (list type attr) value) ... id))))
 
-; goal looks like: (fresh-vars 3 (lambda (q ?x ?y) (equalo q ?x) (dl_findo ( (,?x '(car speed) 4) ))))
-(define (dl-find goal) (runf* goal)) ; goal already encapsulated dl
+; ----------------------------------------------------------------------
+; Candidate enumeration + the join.
+;
+; Cases by ground-ness of the walked entity/attr (deep: no unbound pvar
+; anywhere, so a partially-instantiated compound attr like (region ?name)
+; routes to a scan, not an exact lookup):
+;   (entity ground,     attr ground)     -> idx-eav   : smallest candidate set
+;   (entity ground,     attr non-ground) -> idx-entity: scan the entity's tuples
+;   (entity non-ground, attr ground)     -> idx-attr
+;   (entity non-ground, attr non-ground) -> scan everything (via idx-entity;
+;       every tuple appears exactly once under its entity). Costliest plan —
+;       lead with a ground attr when you can.
+; ----------------------------------------------------------------------
 
-(define-syntax dl-findo
-  (syntax-rules ()
-    ((_ dl (m ...)) (conj+ (dl-findo_ dl `m) ... ))))
-
-; Cases by ground-ness. We use ground-ness (deep: no unbound var anywhere)
-; rather than top-level boundness so a partially-instantiated compound attr
-; like (region ?name) is handled. For the entity position — always an atom
-; or a single var, never a partial compound — ground-ness and boundness
-; coincide. groundo / non-groundo are exact complements, so the conde
-; branches stay mutually exclusive (no duplicate solutions):
-;   (entity ground,   attr ground)     -> idx-eav   : smallest candidate set
-;   (entity ground,   attr non-ground) -> idx-entity: scan; membero unifies attr
-;   (entity non-ground, attr ground)   -> idx-attr
-;   (entity non-ground, attr non-ground) -> a tiny "bind the entity first"
-;       planner: enumerate the entity var over idx-entity's keys (every known
-;       entity), then fall through to the same idx-entity path as case 2. This
-;       lets the fully-open shape, e.g. (?q (region ?name) ?v), resolve on its
-;       own — no need for the caller to hand-roll an entity enumerator. It
-;       still visits every fact, so it's the costliest plan; lead with a ground
-;       attr when you can.
-(define (dl-findo_ dl m)
-   (fresh (x y entity attr db)
-   (conso entity x m)
-   (conso attr y x)
-     (conde
-       [(groundo entity) (groundo attr)
-        (lookupo2 (datalog-idx-eav dl) entity attr db) (membero m db)]
-       [(groundo entity) (non-groundo attr)
-        (lookupo (datalog-idx-entity dl) entity db) (membero m db)]
-       [(non-groundo entity) (groundo attr)
-        (lookupo (datalog-idx-attr dl) attr db) (membero m db)]
-       [(non-groundo entity) (non-groundo attr)
-        (keyso (datalog-idx-entity dl) entity)
-        (lookupo (datalog-idx-entity dl) entity db) (membero m db)] )))
-
-; compiles the rule to a goal function
-; here we need to find the ?vars and assert #`(fresh-vars #,num-vars (lambda (#,@vars) (conj (equalo q #,head) (dl_findo #,@body))))
-(define-syntax dl-rule!
-  (lambda (stx)
-    (define (symbol-with-question-mark? s)
-      (and (symbol? s)
-           (let ((str (symbol->string s)))
-             (and (positive? (string-length str))
-                  (char=? (string-ref str 0) #\?)))))
-
-  ; #t when a logic var appears ANYWHERE in DATUM, including nested inside a
-  ; compound attr like (region ?name). Used to decide rule eligibility: such
-  ; a rule's attr can't be predicted at expand time, so it's marked 'any.
-  (define (contains-question-mark? datum)
-    (cond ((symbol-with-question-mark? datum) #t)
-          ((pair? datum) (or (contains-question-mark? (car datum))
-                             (contains-question-mark? (cdr datum))))
-          (else #f)))
-
-  (define (collect-vars datum)
-        (cond
-          [(symbol? datum)
-           (if (symbol-with-question-mark? datum) (list datum) '())]
-          [(pair? datum)
-             (append (collect-vars (car datum))
-                     (collect-vars (cdr datum)))]
-          [else '()]))
-
-  (define (remove-duplicates syms)
-      (define seen '())
-      (define (unique s)
-        (let ((d (syntax->datum s)))
-          (if (member d seen) #f
-              (begin (set! seen (cons d seen)) #t))))
-      (filter unique syms))
-
-  (define (replace-symbols datum sym->gen)
+; Call TRY on every candidate tuple for walked condition CND.
+(define (for-each-candidate dl cnd try)
+  (define (scan bucket) (if bucket (hash-for-each (lambda (t _) (try t)) bucket)))
+  (let ((e (car cnd)) (a (cadr cnd)))
     (cond
-      [(symbol? datum)
-       (let ((mapped (assoc datum sym->gen)))
-         (if mapped (cdr mapped) (datum->syntax stx datum)))]
-      [(pair? datum)
-       (cons (replace-symbols (car datum) sym->gen)
-             (replace-symbols (cdr datum) sym->gen))]
-      [else (datum->syntax stx datum)]))
+      ((and (pat-ground? e) (pat-ground? a))
+       (let ((eb (hash-ref (datalog-idx-eav dl) e #f)))
+         (scan (and eb (hash-ref eb a #f)))))
+      ((pat-ground? e)
+       (scan (hash-ref (datalog-idx-entity dl) e #f)))
+      ((pat-ground? a)
+       (scan (hash-ref (datalog-idx-attr dl) a #f)))
+      (else
+       (hash-for-each (lambda (_ bucket) (scan bucket))
+                      (datalog-idx-entity dl))))))
 
-  (syntax-case stx (:-)
-    ((_ dl (head hx hy) :- (body bx by) ...)
-     (let* ((datums (syntax->datum #'((hx head hy) (bx body by) ...)))
-            (head-datum (car datums))
-            (body-datums (cdr datums))
-            (vars (remove-duplicates (collect-vars datums)))
-            (numvars (+ 1 (length vars)))
-            (gens (generate-temporaries vars))
-            (sym->gen (map cons vars gens))
-            (replaced-head (replace-symbols head-datum sym->gen))
-            (replaced-body (replace-symbols body-datums sym->gen))
-            ; The attr in each body cond is the *first* element (the
-            ; relation name in dl-rule! syntax). If any is a logic var
-            ; we don't know what it'll bind to at runtime, so mark the
-            ; whole rule as 'any (always-eligible).
-            (body-attrs (syntax->datum #'(body ...)))
-            (any-var? (let loop ((as body-attrs))
-                        (cond ((null? as) #f)
-                              ((contains-question-mark? (car as)) #t)
-                              (else (loop (cdr as))))))
-            (rule-attrs-datum (if any-var? 'any body-attrs))
-            ; Wrap as syntax so the #, splice produces a real syntax
-            ; object (otherwise the expander complains about raw
-            ; symbols leaking into the macro output).
-            (rule-attrs (datum->syntax stx rule-attrs-datum)))
-       #`(dl-assert-rule! dl (fresh-vars #,numvars
-           (lambda (q #,@gens)
-             (conj (equalo q `#,replaced-head)
-                   (dl-findo dl #,replaced-body) ))) '#,rule-attrs))))))
+; Same, but candidates come from the DELTA (attr -> tuples) instead of
+; the full database. The delta is small, so the non-ground-attr case
+; just scans all of it.
+(define (for-each-delta-candidate delta cnd try)
+  (let ((a (cadr cnd)))
+    (if (pat-ground? a)
+        (for-each try (hash-ref delta a '()))
+        (hash-for-each (lambda (_ tuples) (for-each try tuples)) delta))))
 
-; Store rule -> attrs (list of attrs the body conditions match on, or
-; the symbol 'any when at least one body condition has an unknown attr
-; — e.g. a logic-variable in the attr position). Semi-naive uses this
-; to skip rules whose preconditions can't have changed.
-(define (dl-assert-rule! dl rule attrs)
-  (hash-set! (datalog-rdb dl) rule attrs))
+; Depth-first nested-loop join. CONDS: list of condition patterns.
+; EMIT: thunk called once per complete match, with ENV fully bound.
+; When DELTA-POS is an integer, condition #DELTA-POS draws its candidates
+; from DELTA instead of the full database (the semi-naive restriction).
+(define (run-join dl conds env emit delta-pos delta)
+  (let loop ((cs conds) (i 0))
+    (if (null? cs)
+        (emit)
+        (let ((cnd (pat-walk (car cs) env)))
+          (define (try tuple)
+            (let ((trail (match-into! cnd tuple env)))
+              (when trail
+                (loop (cdr cs) (+ i 1))
+                (undo-trail! env trail))))
+          (if (and delta-pos (= i delta-pos))
+              (for-each-delta-candidate delta cnd try)
+              (for-each-candidate dl cnd try))))))
 
-(define (any-in-delta? attrs delta)
-  (let loop ((as attrs))
-    (cond ((null? as) #f)
-          ((hash-ref delta (car as) #f) #t)
-          (else (loop (cdr as))))))
+; ----------------------------------------------------------------------
+; Rules.
+; ----------------------------------------------------------------------
 
+; patterns - compiled condition triples (with <pvar>s)
+; nvars    - environment size
+; produce  - (lambda (env) tuple): builds the derived tuple per match
+; attrs    - list of attr datums the conditions match on, or 'any when an
+;            attr contains a variable (can't be predicted -> always eligible)
+; source   - the source datum of the conditions, for printing/introspection
+(define-record-type <dl-rule>
+  (make-dl-rule patterns nvars produce attrs source)
+  dl-rule?
+  (patterns dl-rule-patterns)
+  (nvars    dl-rule-nvars)
+  (produce  dl-rule-produce)
+  (attrs    dl-rule-attrs)
+  (source   dl-rule-source))
+
+(define (dl-assert-rule! dl rule)
+  (hash-set! (datalog-rdb dl) rule #t))
+
+(define (dl-retract-rule! dl rule)
+  (hash-remove! (datalog-rdb dl) rule))
+
+; All derived tuples for RULE. With PREV-DELTA (attr -> tuples of the
+; previous iteration): the semi-naive union over delta positions — one
+; join per condition, that condition restricted to the delta. Duplicates
+; across positions are deduped downstream by the fixpoint's fact set.
+; Without PREV-DELTA (#f): one full join (first iteration).
+(define (dl-apply-rule dl rule prev-delta)
+  (let ((patterns (dl-rule-patterns rule))
+        (produce  (dl-rule-produce rule))
+        (nvars    (dl-rule-nvars rule))
+        (out      '()))
+    (define (collect delta-pos)
+      (let ((env (make-env nvars)))
+        (run-join dl patterns env
+                  (lambda () (set! out (cons (produce env) out)))
+                  delta-pos prev-delta)))
+    (if prev-delta
+        (let loop ((i 0) (cs patterns))
+          (unless (null? cs)
+            (collect i)
+            (loop (+ i 1) (cdr cs))))
+        (collect #f))
+    out))
+
+; Eligibility: skip rules none of whose attrs saw a new fact last
+; iteration. 'any rules (variable in attr position) always run.
 (define (rules-to-evaluate dl prev-delta)
   (if (not prev-delta)
       (hashtable-keys (datalog-rdb dl))
       (let ((eligible '()))
         (hash-for-each
-          (lambda (rule attrs)
-            (when (or (eq? attrs 'any)
-                      (any-in-delta? attrs prev-delta))
-              (set! eligible (cons rule eligible))))
+          (lambda (rule _)
+            (let ((attrs (dl-rule-attrs rule)))
+              (when (or (eq? attrs 'any)
+                        (any (lambda (a) (hash-ref prev-delta a #f)) attrs))
+                (set! eligible (cons rule eligible)))))
           (datalog-rdb dl))
         eligible)))
+
+; ----------------------------------------------------------------------
+; The fixpoint.
+;
+; Called with the list of newly derived tuples each iteration, after they
+; are indexed. engine/fixpoint.scm sets this to run When bodies; the
+; default keeps this file self-contained for pure-datalog use.
+; ----------------------------------------------------------------------
+
+(define *fixpoint-new-facts-hook* (lambda (dl new) #f))
 
 (define (dl-fixpoint! dl)
   (for-each (lambda (fact) (dl-retract! dl fact)) (hashtable-keys (datalog-idb dl)))
   (set-datalog-idb! dl (make-hash-table))
-  (reset-delta-attrs!)
+  (reset-delta!)
   (dl-fixpoint-iterate dl #f))
 
 (define (dl-fixpoint-iterate dl prev-delta)
   (let ((rules (rules-to-evaluate dl prev-delta)))
     (if (null? rules) #t
         (begin
-          (reset-delta-attrs!)   ; this iter's deltas accumulate here
-          (let* ((facts (par-map (lambda (rule) (dl-apply-rule dl rule)) rules))
-                 (factset (foldl (lambda (x y) (set-extend! y x)) facts (make-hash-table)))
+          (reset-delta!)   ; this iteration's delta accumulates here
+          (let* ((facts (par-map (lambda (rule) (dl-apply-rule dl rule prev-delta)) rules))
+                 (factset (fold (lambda (fs acc) (set-extend! acc fs)) (make-hash-table) facts))
                  (new (hashtable-keys (set-difference factset (datalog-idb dl)))))
             (set-extend! (datalog-idb dl) new)
             (for-each (lambda (fact) (dl-update-indices! dl fact)) new)
-            (if (not (null? new)) (dl-fixpoint-iterate dl *delta-attrs*)))))))
-
-(define (dl-apply-rule dl rule)
-  (dl-find rule))
+            (*fixpoint-new-facts-hook* dl new)
+            (if (not (null? new)) (dl-fixpoint-iterate dl *delta*)))))))
 
 ; todo: remove from edb? doesn't matter atm
 (define (dl-retract! dl tuple)
@@ -259,59 +350,133 @@
             (a-bucket (and e-bucket (hash-ref e-bucket attr #f))))
        (if a-bucket (hash-remove! a-bucket tuple)))))
 
-(define (dl-retract-rule! dl rule) 
-  (hash-remove! (datalog-rdb dl) rule))
+; ----------------------------------------------------------------------
+; Expansion-time helpers shared by dl-query / dl-rule! here and When in
+; engine/dsl.scm. eval-when makes them available to the macro
+; transformers below (and in later-loaded files) regardless of how the
+; tree is loaded.
+; ----------------------------------------------------------------------
+
+(eval-when (expand load eval)
+  ; A logic variable: any symbol whose first char is #\?, e.g. ?p, ?color.
+  (define (logic-var-sym? x)
+    (and (symbol? x)
+         (let ((s (symbol->string x)))
+           (and (positive? (string-length s))
+                (char=? (string-ref s 0) #\?)))))
+
+  (define (syntax-logic-var? stx)
+    (and (identifier? stx) (logic-var-sym? (syntax->datum stx))))
+
+  ; #t when a logic var appears ANYWHERE in DATUM, including nested inside
+  ; a compound attr such as (region ?name). Used to decide rule
+  ; eligibility: such an attr can't be predicted at expand time, so the
+  ; rule is marked 'any (always-eligible).
+  (define (contains-logic-var? datum)
+    (cond ((logic-var-sym? datum) #t)
+          ((pair? datum) (or (contains-logic-var? (car datum))
+                             (contains-logic-var? (cdr datum))))
+          (else #f)))
+
+  ; All distinct logic-var identifiers in TREE, reverse first-seen order
+  ; (callers reverse). Skips (quote ...) subtrees; descends into unquote
+  ; so ,?x-style vars are found too. bound-identifier=? dedup keeps a
+  ; macro-introduced ?x distinct from a user-written ?x (they get
+  ; separate slots even though they spell the same symbol).
+  (define (collect-pattern-vars tree acc)
+    (syntax-case tree (quote)
+      ((quote _) acc)
+      ((a . d) (collect-pattern-vars #'d (collect-pattern-vars #'a acc)))
+      (id (syntax-logic-var? #'id)
+          (if (find (lambda (v) (bound-identifier=? v #'id)) acc)
+              acc
+              (cons #'id acc)))
+      (_ acc)))
+
+  (define (pattern-var-slot id vars)
+    (list-index (lambda (v) (bound-identifier=? v id)) vars))
+
+  ; Build the quasiquote TEMPLATE (to be wrapped in a quasiquote by the
+  ; caller) that constructs the runtime pattern for TREE:
+  ;   ?var          -> ,(make-pvar <slot> '?var)
+  ;   ,expr         -> ,expr    (runtime splice; ,?var means the var)
+  ;   this          -> ,this    (the page id, via the dsl's syntax
+  ;                              parameter — flat-namespace datum compare)
+  ;   anything else -> literal
+  (define (pattern-template tree vars)
+    (define (pvar-for id)
+      #`(unquote (make-pvar #,(pattern-var-slot id vars) '#,id)))
+    (let walk ((t tree))
+      (syntax-case t (unquote)
+        ((unquote e) (syntax-logic-var? #'e) (pvar-for #'e))
+        ((unquote e) t)
+        ((a . d) (cons (walk #'a) (walk #'d)))
+        (id (syntax-logic-var? #'id) (pvar-for #'id))
+        (id (and (identifier? #'id) (eq? (syntax->datum #'id) 'this))
+            #`(unquote #,t))
+        (other #'other)))))
+
+; ----------------------------------------------------------------------
+; (dl-query dl ((e attr v) ...) result-expr)
+;
+; Run a conjunctive query and collect RESULT-EXPR once per match, with
+; the ?vars of the conditions in scope. Result order is unspecified.
+; ----------------------------------------------------------------------
+(define-syntax dl-query
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ dl ((cx cnd cy) ...) result)
+       (let* ((vars (reverse (collect-pattern-vars #'((cx cnd cy) ...) '())))
+              (tpl  (pattern-template #'((cx cnd cy) ...) vars))
+              (n    (length vars)))
+         #`(let ((env (make-env #,n))
+                 (out '()))
+             (run-join dl #,(list #'quasiquote tpl) env
+                       (lambda ()
+                         (let #,(map (lambda (v i) #`(#,v (vector-ref env #,i)))
+                                     vars (iota n))
+                           (set! out (cons result out))))
+                       #f #f)
+             out))))))
+
+; ----------------------------------------------------------------------
+; (dl-rule! dl (attr e v) :- (attr e v) ...)
+;
+; Assert a pure rule: derive the head tuple for every match of the body.
+; Head variables must appear in the body (range restriction) — checked
+; at expand time.
+; ----------------------------------------------------------------------
+(define-syntax dl-rule!
+  (lambda (stx)
+    (syntax-case stx (:-)
+      ((_ dl (ha he hv) :- (ba be bv) ...)
+       (let* ((head      #'(he ha hv))
+              (body      #'((be ba bv) ...))
+              (vars      (reverse (collect-pattern-vars body '())))
+              (head-vars (reverse (collect-pattern-vars head '())))
+              (n         (length vars)))
+         (for-each
+           (lambda (hv*)
+             (unless (find (lambda (v) (bound-identifier=? v hv*)) vars)
+               (syntax-violation 'dl-rule!
+                 "head variable does not appear in rule body" stx hv*)))
+           head-vars)
+         (let* ((body-tpl    (pattern-template body vars))
+                (head-tpl    (pattern-template head vars))
+                (attr-datums (syntax->datum #'(ba ...)))
+                (attrs       (if (any contains-logic-var? attr-datums)
+                                 'any attr-datums)))
+           #`(dl-assert-rule! dl
+               (make-dl-rule
+                 #,(list #'quasiquote body-tpl)
+                 #,n
+                 (let ((head #,(list #'quasiquote head-tpl)))
+                   (lambda (env) (pat-walk head env)))
+                 '#,(datum->syntax stx attrs)
+                 '#,(datum->syntax stx
+                      (syntax->datum #'((ha he hv) :- (ba be bv) ...)))))))))))
 
 #| HELPER FUNCTIONS |#
-(define (foldl f l acc)
-   (if (null? l) acc
-     (foldl f (cdr l) (f (car l) acc))))
-
-(define (conso a b l) (equalo (cons a b) l))
-; A term is "ground" when, fully walked, it contains no unbound logic
-; variable anywhere. A bare unbound var is non-ground; so is a partially
-; instantiated compound like (region <unbound>). (This replaces the old
-; shallow boundo/unboundo, which only inspected the top level and so
-; mis-routed a partial compound attr into an exact-lookup branch — where it
-; silently found nothing.)
-(define (term-ground? term s)
-  (let scan ((v (walk* term s)))
-    (cond ((var? v) #f)
-          ((pair? v) (and (scan (car v)) (scan (cdr v))))
-          (else #t))))
-(define (groundo term)
-    (lambda (s/c) (if (term-ground? term (car s/c)) (unit s/c) mzero)))
-(define (non-groundo term)
-    (lambda (s/c) (if (term-ground? term (car s/c)) mzero (unit s/c))))
-(define (lookupo m key value)
-    (lambda (s/c)
-      (let* ((k (if (var? key) (walk key (car s/c)) key))
-             (v (hash-ref m k #f)))
-       (if v ((equalo value (hashtable-keys v)) s/c) mzero))))
-
-(define (lookupo2 m key1 key2 value)
-    (lambda (s/c)
-      (let* ((k1 (if (var? key1) (walk key1 (car s/c)) key1))
-             (k2 (if (var? key2) (walk key2 (car s/c)) key2))
-             (inner (hash-ref m k1 #f))
-             (v (and inner (hash-ref inner k2 #f))))
-       (if v ((equalo value (hashtable-keys v)) s/c) mzero))))
-
-; Enumerate every key of hash-table M, unifying each with KEY (expected to be
-; an unbound var). The key list is materialised only when this goal actually
-; runs — guarded behind the non-ground branch of dl-findo_ — so the common
-; ground-entity cases pay nothing for it.
-(define (keyso m key)
-  (lambda (s/c)
-    ((membero key (hashtable-keys m)) s/c)))
-
-(define (membero x l)
-   (fresh (a d)
-     (conso a d l)
-     (conde
-       [(equalo a x)]
-       [(membero x d)])))
-
 (define (set-extend! m keys)
   (for-each (lambda (key)
     (hash-set! m key #t))

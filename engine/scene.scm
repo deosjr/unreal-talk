@@ -78,22 +78,22 @@
 
 ; note: guile scheme gettimeofday returns a pair of seconds and microseconds in unix epoch
 (define (assert-time)
-  (let (( claims (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (time now ,x) )))))))
-    (for-each (lambda (claim) (dl-retract! dl `(time now ,claim))) claims))
+  (for-each (lambda (claim) (dl-retract! dl `(time now ,claim)))
+            (dl-query dl ((time now ?x)) ?x))
   (dl-assert! dl 'time 'now (gettimeofday)))
 
 (define (assert-time-detect d)
-  (let (( claims (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (time detect ,x) )))))))
-    (for-each (lambda (claim) (dl-retract! dl `(time detect ,claim))) claims))
+  (for-each (lambda (claim) (dl-retract! dl `(time detect ,claim)))
+            (dl-query dl ((time detect ?x)) ?x))
   (dl-assert! dl 'time 'detect d))
 
 (define (assert-time-scm d)
-  (let (( claims (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (time scm ,x) )))))))
-    (for-each (lambda (claim) (dl-retract! dl `(time scm ,claim))) claims))
+  (for-each (lambda (claim) (dl-retract! dl `(time scm ,claim)))
+            (dl-query dl ((time scm ?x)) ?x))
   (dl-assert! dl 'time 'scm d))
 
 ; if key == -1 then no key was pressed
 (define (assert-key key)
-  (let (( claims (dl-find (fresh-vars 1 (lambda (x) (dl-findo dl ( (key down ,x) )))))))
-    (for-each (lambda (claim) (dl-retract! dl `(key down ,claim))) claims))
+  (for-each (lambda (claim) (dl-retract! dl `(key down ,claim)))
+            (dl-query dl ((key down ?x)) ?x))
   (if (not (= key -1)) (dl-assert! dl 'key 'down key)))

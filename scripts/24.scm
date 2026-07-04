@@ -1,10 +1,10 @@
 ; evil mode - VIM for emacs
 ; communicates to all editors; eventually should be on a swappable keyboard tag
 
-(define bg '(0 0 255))
-(define line '(100 100 255))
-(define cursor '(150 150 255))
-(define text '(255 255 255))
+(define bg '(0 0 0))
+(define line '(100 100 100))
+(define cursor '(150 150 150))
+(define text '(0 255 0))
 
 ; TODO: use parameters?
 (When ((?editor editor #t))
@@ -33,6 +33,7 @@
 ; NOTE: these Wishes currently cannot move to separate functions
 ; as that would break macro-expansion into Wish-derived :/
 ; derived-wish! is available, but not intended to be used directly
+; Perhaps we just move the value into its own definition?
 (When ((?editor mode command)
        (?editor editing ?p)
        (key down ?key))
@@ -70,6 +71,7 @@
        (key down ?key))
  do (case ?key
       ; todo: don't delete-char if we start on cursor-x = 0
+      ; this may require a delete/delete-backwards split in editor?
       ((127) (Wish ?editor 'edits '((forward-char -1) (delete-char 1)))) ; backspace
       ((13)  (Wish ?editor 'edits '((new-line)))) ; newline
       ((27)  (Wish ?editor 'edits '((change-mode command)))) ; escape

@@ -6,13 +6,13 @@
 (define cursor '(150 150 150))
 (define text '(0 255 0))
 
-; TODO: use parameters?
 (When ((?editor editor #t))
  do (Wish ?editor 'has-background-color bg)
     (Wish ?editor 'has-line-color line)
     (Wish ?editor 'has-cursor-color cursor)
     (Wish ?editor 'has-text-color text))
 
+; TODO: use parameters?
 ; TODO: should live on a separate tag that makes claims about editor visuals
 ; but right now this lets us edit the editor dimensions from the editor
 ; inner dimensions of 9x9 tag at 1cm per pixel: 5x5cm. a4 in cm: 21 x 29.7
@@ -72,8 +72,19 @@
       ((27)  '((change-mode command))) ; escape
       (else `(,(insert-char key))))) ; insert
 
+; find out which mode we land on after a series of operations
+(define (mode-after ops mode)
+  (fold (lambda (op m)
+    (if (eq? (car op) 'change-mode) (cadr op) m))
+   mode ops))
+
+; todo: since we now fold over multiple key presses
+; we can remove all but the last change-mode if we like
 (When ((?editor mode ?mode)
        (?editor editing ?p)
-       (key down ?key))
- do (let ((edits (get-edits ?mode ?key)))
-      (Wish ?editor 'edits edits)))
+       (key sequence ?keys))
+ do (let loop ((keys ?keys) (mode ?mode) (acc '()))
+      (if (null? keys)
+        (if (pair? acc) (Wish ?editor 'edits acc))
+        (let ((ops (get-edits mode (car keys))))
+          (loop (cdr keys) (mode-after ops mode) (append acc ops))))))

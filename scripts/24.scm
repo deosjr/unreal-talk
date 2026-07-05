@@ -30,52 +30,50 @@
  do (let ((c (integer->char ?k)))
      (Wish this 'subtitled (string c))))
 
-; NOTE: these Wishes currently cannot move to separate functions
-; as that would break macro-expansion into Wish-derived :/
-; derived-wish! is available, but not intended to be used directly
-; Perhaps we just move the value into its own definition?
-(When ((?editor mode command)
-       (?editor editing ?p)
-       (key down ?key))
- do (case ?key
-       ((48)  (Wish ?editor 'edits '((start-of-line))))   ; 0
-       ((36)  (Wish ?editor 'edits '((end-of-line))))     ; $
-       ((100) (Wish ?editor 'edits '((delete-line))))     ; d
-       ((104) (Wish ?editor 'edits '((forward-char -1)))) ; h
-       ((106) (Wish ?editor 'edits '((forward-line 1))))  ; j
-       ((107) (Wish ?editor 'edits '((forward-line -1)))) ; k
-       ((108) (Wish ?editor 'edits '((forward-char 1))))  ; l
-       ((120) (Wish ?editor 'edits '((delete-char 1))))   ; x
-       ((105) (Wish ?editor 'edits '((change-mode insert))))  ; i
-       ((114) (Wish ?editor 'edits '((change-mode replace)))) ; r
-       ((111) (Wish ?editor 'edits '((end-of-line) (new-line) (change-mode insert))))   ; o
-       ((115) (Wish ?editor 'edits '((save)))) ; s 
-     ))
+(define (get-edits mode key)
+  (case mode
+    ((command) (edits-command key))
+    ((replace) (edits-replace key))
+    ((insert)  (edits-insert key))
+    (else '())))
 
-(When ((?editor mode replace)
-       (?editor editing ?p)
-       (key down ?key))
- do (if (not (= ?key 27)) ; escape
-      (let* ((c (integer->char ?key))
-             (s (string c)))
-        (Wish ?editor 'edits `((delete-char 1) (insert ,s)))))
-      (Wish ?editor 'edits '((change-mode command))))
+(define (edits-command key)
+  (case key
+       ((48)  '((start-of-line)))   ; 0
+       ((36)  '((end-of-line)))     ; $
+       ((100) '((delete-line)))     ; d
+       ((104) '((forward-char -1))) ; h
+       ((106) '((forward-line 1)))  ; j
+       ((107) '((forward-line -1))) ; k
+       ((108) '((forward-char 1)))  ; l
+       ((120) '((delete-char 1)))   ; x
+       ((105) '((change-mode insert)))  ; i
+       ((114) '((change-mode replace))) ; r
+       ((111) '((end-of-line) (new-line) (change-mode insert)))   ; o
+       ((115) '((save))) ; s 
+       (else '())))
 
-(define (insert-char editor key)
+(define (insert-char key)
   (let* ((c (integer->char key))
          (s (string c)))
-    (Wish editor 'edits `((insert ,s)))))
+    `(insert ,s)))
 
-(When ((?editor mode insert)
-       (?editor editing ?p)
-       (key down ?key))
- do (case ?key
+(define (edits-replace key)
+  (if (= key 27) ; escape
+      '((change-mode command))
+      `((delete-char 1) ,(insert-char key) (change-mode command))))
+
+(define (edits-insert key)
+  (case key
       ; todo: don't delete-char if we start on cursor-x = 0
       ; this may require a delete/delete-backwards split in editor?
-      ((127) (Wish ?editor 'edits '((forward-char -1) (delete-char 1)))) ; backspace
-      ((13)  (Wish ?editor 'edits '((new-line)))) ; newline
-      ((27)  (Wish ?editor 'edits '((change-mode command)))) ; escape
-      (else ; insert char
-        (let* ((c (integer->char ?key))
-               (s (string c)))
-          (Wish ?editor 'edits `((insert ,s)))))))
+      ((127) '((forward-char -1) (delete-char 1))) ; backspace
+      ((13)  '((new-line))) ; newline
+      ((27)  '((change-mode command))) ; escape
+      (else `(,(insert-char key))))) ; insert
+
+(When ((?editor mode ?mode)
+       (?editor editing ?p)
+       (key down ?key))
+ do (let ((edits (get-edits ?mode ?key)))
+      (Wish ?editor 'edits edits)))

@@ -24,11 +24,16 @@ func scm_pageGeometry(pg pageGeometry) C.SCM {
 	return C.scm_list_3(id, points, rotation)
 }
 
-func scm_sendKeyDown(key int) {
-	fname := C.CString("receive-key-down")
+func scm_sendKeysDown(keys []int) {
+	fname := C.CString("receive-keys-down")
 	defer C.free(unsafe.Pointer(fname))
 	f := C.scm_variable_ref(C.scm_c_lookup(fname))
-	C.scm_call_1(f, C.scm_from_int(C.int(key)))
+	list := C.SCM_EOL
+	for i := len(keys) - 1; i >= 0; i-- {
+		k := C.scm_from_int(C.int(keys[i]))
+		list = C.scm_cons(k, list)
+	}
+	C.scm_call_1(f, list)
 }
 
 func scm_sendTimeDetect(d int64) {

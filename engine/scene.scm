@@ -45,8 +45,8 @@
   (filter (lambda (id) (hash-ref *pages-in-scene* id #f))
     (hashtable-keys *pages-in-scene-prev*)))
 
-(define (receive-key-down key)
-  (assert-key key))
+(define (receive-keys-down keys)
+  (assert-keys keys))
 (define (receive-time-detect d)
   (assert-time-detect d))
 (define (receive-time-scm d)
@@ -109,11 +109,11 @@
 (define (assert-time-scm d)
   (engine-replace! 'time 'scm d))
 
-; if key == -1 then no key was pressed
-(define (assert-key key)
+(define (assert-keys keys)
   (for-each (lambda (claim) (engine-retract! 'key 'down claim))
             (dl-query dl ((key down ?x)) ?x))
-  (if (not (= key -1)) (engine-assert! 'key 'down key)))
+  (for-each (lambda (key) (engine-assert! 'key 'down key)) keys)
+  (engine-replace! 'key 'sequence keys))
 
 ; ----------------------------------------------------------------------
 ; Fixpoint statistics as facts.

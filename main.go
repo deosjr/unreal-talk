@@ -123,7 +123,7 @@ func main() {
 Loop:
 	for {
 		start := time.Now()
-		keyDown := -1
+        keys := []int{}
 		ch := make(chan []pageGeometry, 1)
 		go aprilTagDetection(detector, webcam, img, debugImg, homography, x, y, ch)
 		for {
@@ -133,7 +133,7 @@ Loop:
 				start = time.Now()
 				scm_sendTimeDetect(time_detect.Milliseconds())
 				scm_sendTimeSCM(time_scm.Milliseconds())
-				scm_sendKeyDown(keyDown)
+				scm_sendKeysDown(keys)
 				scm_sendPageGeometries(pgs)
 				time_scm = time.Now().Sub(start)
 				tagids := []int{}
@@ -148,12 +148,9 @@ Loop:
 				continue Loop
 			default:
 				if key := gocv.WaitKey(1); key != -1 {
-					keyDown = key
+					keys = append(keys, key)
 				}
 			}
-		}
-		if window.WaitKey(1) == 27 {
-			break // ESC to quit
 		}
 	}
 }

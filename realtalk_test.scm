@@ -157,6 +157,68 @@
        '())
 
 ;;; ----------------------------------------------------------------------
+;;; Error facts — (?p (error ?class) ?msg), class in the attribute.
+;;;
+;;; compile: try-compile-page on bad source (EDB, engine-claimed)
+;;; runtime: page init throws (EDB) and rule body throws during fixpoint
+;;;          (derived, auto-clears once the body stops throwing)
+;;; A 9005-style observer binds the class through the attribute to prove
+;;; the generic match works in a rule, not just in dl-query.
+;;; ----------------------------------------------------------------------
+
+(define err-observer
+  (make-page-code
+    (When ((?p (error ?class) ?msg)) do (Claim this 'saw (list ?p ?class)))))
+(err-observer 'ob)
+
+;; compile error: unreadable source
+(check "errors: failed compile returns #f"
+       (try-compile-page 'bad 'save "(") #f)
+(check "errors: compile failure asserts (error compile)"
+       (length (dl-query dl ((bad (error compile) ?m)) ?m)) 1)
+(check "errors: compile error fact is engine-claimed"
+       (length (dl-query dl ((engine claims (bad (error compile) ?m))) ?m)) 1)
+(check "errors: message keeps the load/save phase prefix"
+       (string-prefix? "save:" (car (dl-query dl ((bad (error compile) ?m)) ?m)))
+       #t)
+
+;; init error: page proc throws when run on arrival
+(hash-set! *procs* 'crash (lambda (this) (error "boom")))
+(page-moved-onto-table 'crash)
+(check "errors: init throw asserts (error runtime)"
+       (string-prefix? "init:" (car (dl-query dl ((crash (error runtime) ?m)) ?m)))
+       #t)
+
+;; rule-body error: derived during fixpoint
+(define bomb-proc
+  (make-page-code
+    (When ((?p kind bomb)) do (error "kaboom"))))
+(bomb-proc 'bp)
+(dl-assert! dl 'z 'kind 'bomb)
+(set-time! 3)
+(dl-fixpoint! dl)
+(check "errors: rule-body throw derives (error runtime)"
+       (string-prefix? "rule:" (car (dl-query dl ((bp (error runtime) ?m)) ?m)))
+       #t)
+(check "errors: observer binds class through the attribute"
+       (as-set (vals 'ob 'saw))
+       (as-set '((bad compile) (crash runtime) (bp runtime))))
+
+;; derived error auto-clears when the body stops throwing
+(dl-retract! dl '(z kind bomb))
+(set-time! 4)
+(dl-fixpoint! dl)
+(check "errors: derived runtime error auto-clears once body stops throwing"
+       (dl-query dl ((bp (error runtime) ?m)) ?m) '())
+
+;; cleanup clears the fact and its provenance twin
+(dl-retract-page-errors! 'bad)
+(check "errors: retract clears the error fact"
+       (dl-query dl ((bad (error ?c) ?m)) ?m) '())
+(check "errors: retract clears the engine-claims twin"
+       (dl-query dl ((engine claims (bad (error ?c) ?m))) ?m) '())
+
+;;; ----------------------------------------------------------------------
 ;;; summary / exit code
 ;;; ----------------------------------------------------------------------
 

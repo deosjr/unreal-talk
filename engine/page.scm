@@ -13,7 +13,7 @@
 (define *procs* (make-hash-table))
 ; ids we've already tried to load. Tried-once-and-failed entries stay in
 ; the set so we don't re-read a missing file every fixpoint when a tag is
-; on the table — the has-error fact does the messaging.
+; on the table — the (error io) fact does the messaging.
 (define *load-attempted* (make-hash-table))
 
 (define (make-page-id) (dl-record dl 'page))
@@ -37,12 +37,32 @@
     (if (not (null? points)) (engine-retract! pid '(page points) (car points)))
     (if (not (null? rotation)) (engine-retract! pid '(page rotation) (car rotation)))))
 
-; Clear any 'has-error facts attached to PID. Used both on successful
-; recompile (to drop a stale error sticking around from a previous bad
-; save) and when a page leaves the table (cleanup).
+; Clear any (error <class>) facts attached to PID, including their
+; engine-claims bookkeeping. Used both on successful recompile (to drop
+; a stale error sticking around from a previous bad save) and when a
+; page leaves the table (cleanup). Also sweeps derived rule-error facts
+; (fixpoint.scm); those never had an engine-claims twin, but dl-retract!
+; ignores missing tuples so the extra retract is harmless.
 (define (dl-retract-page-errors! pid)
-  (for-each (lambda (msg) (dl-retract! dl `(,pid has-error ,msg)))
-            (dl-query dl ((,pid has-error ?x)) ?x)))
+  (for-each (lambda (cm) (engine-retract! pid `(error ,(car cm)) (cadr cm)))
+            (dl-query dl ((,pid (error ?c) ?m)) (list ?c ?m))))
+
+; Single writer for page error facts: (pid (error class) msg), class one
+; of compile/runtime/io. Replaces any previous error on the page. Routed
+; through engine-assert! so provenance queries have an answer — (engine
+; claims (pid (error class) msg)) — like every other engine-side fact.
+(define (assert-page-error! pid class msg)
+  (dl-retract-page-errors! pid)
+  (engine-assert! pid `(error ,class) msg))
+
+; Render a caught (key . args) the way the REPL would — "Unbound
+; variable: foo" — instead of dumping the raw (subr fmt fmt-args data)
+; throw tuple. Nonstandard keys degrade to "Throw to key ... with args
+; ...". Shared by every error handler here and in fixpoint.scm.
+(define (exception-message key args)
+  (string-trim-right
+    (call-with-output-string
+      (lambda (port) (print-exception port #f key args)))))
 
 ; Retract any existing (pid (page code) _) facts. Used by load-page and
 ; save-page before asserting a new value, so the (page code) attribute
@@ -60,11 +80,10 @@
   (catch #t
     (lambda () (execute-page pid))
     (lambda (key . args)
-      (format (current-error-port)
-              "page init error in page ~a: ~s ~s~%" pid key args)
-      (dl-retract-page-errors! pid)
-      (dl-assert! dl pid 'has-error
-        (format #f "init: ~a: ~s" key args)))))
+      (let ((msg (exception-message key args)))
+        (format (current-error-port)
+                "page init error in page ~a: ~a~%" pid msg)
+        (assert-page-error! pid 'runtime (string-append "init: " msg))))))
 
 ; then retract all 'this claims x' and 'this rules x' from dl-db when newly out of table bounds
 (define (page-moved-from-table pid)
@@ -99,20 +118,20 @@
     (get-string-all port)) #:encoding "utf-8"))
 
 ; Wrap user code in (make-page-code ...) and eval it, returning the
-; resulting page procedure. On any error: log, assert a 'has-error fact
-; on the page (visible to error-display pages), and return #f so the
-; caller can decide what to do (load-page skips; save-page keeps the
+; resulting page procedure. On any error: log, assert an (error compile)
+; fact on the page (visible to error-display pages), and return #f so
+; the caller can decide what to do (load-page skips; save-page keeps the
 ; old proc in place).
 (define (try-compile-page id phase code-str)
   (catch #t
     (lambda () (eval-string (format #f "(make-page-code ~a)" code-str)))
     (lambda (key . args)
-      (format (current-error-port)
-              "~a error in page ~a: ~s ~s~%" phase id key args)
-      (dl-retract-page-errors! id)
-      (dl-assert! dl id 'has-error
-        (format #f "~a: ~a: ~s" phase key args))
-      #f)))
+      (let ((msg (exception-message key args)))
+        (format (current-error-port)
+                "~a error in page ~a: ~a~%" phase id msg)
+        (assert-page-error! id 'compile
+          (format #f "~a: ~a" phase msg))
+        #f))))
 
 ; Empty source we assert as (page code) when the script file is missing
 ; so the editor (scripts/1.scm) — whose `When` matches `(?p (page code)
@@ -122,8 +141,8 @@
 
 ; Read the script file then compile. Wrapped: a missing scripts/<id>.scm
 ; (or an unreadable one) should not crash main.scm and should surface as
-; a has-error fact so 9005 renders "ERR: no script for tag N" at the
-; offending tag. Compile errors are already handled by try-compile-page.
+; an (error io) fact so 9005 renders it at the offending tag. Compile
+; errors are already handled by try-compile-page.
 ;
 ; Records the attempt in *load-attempted* so ensure-loaded! won't keep
 ; re-trying a missing file every fixpoint.
@@ -134,9 +153,9 @@
                (lambda () (read-page-code id))
                (lambda (key . args)
                  (format (current-error-port)
-                         "could not read script for tag ~a: ~s ~s~%" id key args)
-                 (dl-retract-page-errors! id)
-                 (dl-assert! dl id 'has-error
+                         "could not read script for tag ~a: ~a~%" id
+                         (exception-message key args))
+                 (assert-page-error! id 'io
                    (format #f "no script for tag ~a" id))
                  ; Assert an empty placeholder so the editor can pick up
                  ; the page despite the missing file.
@@ -159,7 +178,7 @@
   (let ((proc (try-compile-page id 'save code-str)))
     ; If compile failed, leave *procs* and (page code) untouched so the
     ; page keeps running its last good version while the user fixes the
-    ; new source — has-error was already asserted by try-compile-page.
+    ; new source — (error compile) was already asserted by try-compile-page.
     (if proc
       (begin
         (write-page-code id code-str)

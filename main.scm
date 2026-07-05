@@ -41,8 +41,9 @@
 (load-background-page 9003)  ; highlight
 (load-background-page 9004)  ; regions
 (load-background-page 9005)  ; error display
+(load-background-page 9006)  ; parameters
 
 ; User-tag scripts (scripts/<id>.scm) are loaded on demand the first
 ; time the tag is seen on the table — see ensure-loaded! in realtalk.scm.
-; A missing or unreadable file surfaces as a 'has-error fact (rendered as
-; a subtitle by 9005). One load attempt per tag per session.
+; A missing or unreadable file surfaces as an (error io) fact (rendered
+; as a subtitle by 9005). One load attempt per tag per session.

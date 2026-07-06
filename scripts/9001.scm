@@ -19,9 +19,7 @@
     (warp-affine temp-img temp-img m 1280 720) ; officially doesn't support in-place modification?
     (warp-affine temp-msk temp-msk m 1280 720)
     (copy-from-to temp-img projection temp-msk)
-    (free-image temp-img)
-    (free-image temp-msk)
-    (free-image m)))
+    (free-images temp-img temp-msk m)))
 
 (When ((?someone wishes (?p titled ?str))
        (?p (page points) (?ulhc ?urhc ?llhc ?lrhc))
@@ -36,3 +34,19 @@
  do (let* ((mid (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5)))
            (center (vec->ints (vec-add mid (vec-mul (vec-from-to ?ulhc ?llhc) 2.0)))))
       (draw-text-centered ?str center ?rotation)))
+
+; takes axis-aligned region points
+; text can be a string, but draw-text expects list of strings
+(define (draw-text-in-region text ulhc lrhc rotation)
+  (let* ((dx (- (car lrhc) (car ulhc)))
+         (dy (- (cdr lrhc) (cdr ulhc)))
+         (lines (if (string? text) (list text) text))
+         (img (create-image dx dy 16))) ; 16 is 3-channel CV8U
+    (draw-text lines img (cons 0 0) (cons dx dy) #:color '(255 255 255))
+    (draw-mat-onto-region-opaque img projection rotation ulhc lrhc)
+    (free-image img)))
+
+(When ((?someone wishes (?r (region text) ?text))
+       (?r (region unrotated) (?ulhc ?urhc ?llhc ?lrhc))
+       (?r (region rotation) ?rotation))
+ do (draw-text-in-region ?text ?ulhc ?lrhc ?rotation))

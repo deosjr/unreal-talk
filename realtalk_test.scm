@@ -219,6 +219,59 @@
        (dl-query dl ((engine claims (bad (error ?c) ?m))) ?m) '())
 
 ;;; ----------------------------------------------------------------------
+;;; Memories — short-form Remember/Forget (this this implied via the
+;;; dsl's syntax parameter) and the #:default flag (write only if the
+;;; key is neither stored nor staged this frame).
+;;; ----------------------------------------------------------------------
+
+; update-memories only applies staged writes whose on-page is in scene
+(hash-set! *pages-in-scene* 'mp #t)
+
+(define mem-proc
+  (make-page-code
+    (Remember 'counter 1)                ; short form, top level
+    (Remember 'counter 99 #:default #t)  ; staged above -> must not clobber
+    (Remember 'seed 42 #:default #t)     ; unset -> seeds
+    (When ((this kind mempage)) do (Remember 'from-rule 7))))
+(mem-proc 'mp)
+(update-memories)
+
+(check "memory: short form stages onto this page; default yields to a same-frame write"
+       (vals 'mp 'counter) '(1))
+(check "memory: default seeds an unset key"
+       (vals 'mp 'seed) '(42))
+
+(dl-assert! dl 'mp 'kind 'mempage)
+(set-time! 5)
+(dl-fixpoint! dl)
+(update-memories)
+(check "memory: short-form Remember works inside a When body"
+       (vals 'mp 'from-rule) '(7))
+
+; simulated re-arrival: a stored memory wins over a default
+(define mem-proc2
+  (make-page-code (Remember 'seed 0 #:default #t)))
+(mem-proc2 'mp)
+(update-memories)
+(check "memory: default does not overwrite a stored memory"
+       (vals 'mp 'seed) '(42))
+
+; plain Remember still resets on re-arrival (reset-on-arrival semantics)
+(define mem-proc3
+  (make-page-code (Remember 'counter 100)))
+(mem-proc3 'mp)
+(update-memories)
+(check "memory: plain Remember overwrites a stored memory"
+       (vals 'mp 'counter) '(100))
+
+(define mem-proc4
+  (make-page-code (Forget 'counter)))
+(mem-proc4 'mp)
+(update-memories)
+(check "memory: short-form Forget clears the memory"
+       (vals 'mp 'counter) '())
+
+;;; ----------------------------------------------------------------------
 ;;; summary / exit code
 ;;; ----------------------------------------------------------------------
 

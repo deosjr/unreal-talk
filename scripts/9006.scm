@@ -61,15 +61,8 @@
 
 (When ((this draws parameters)
        (?p (region parameter) ?r)
-       (?r (region unrotated) (?ulhc ?urhc ?llhc ?lrhc))
-       (?r (region rotation) ?rotation)
        (?r (region parameter) ?paramid)
        (?paramid (parameter name) ?pname)
        (?p ?pname ?value))
- do (let* ((dx (- (car ?lrhc) (car ?ulhc)))
-           (dy (- (cdr ?lrhc) (cdr ?ulhc)))
-           (text (list (format #f "~a: ~a" ?pname ?value)))
-           (img (create-image dx dy 16))) ; 16 is 3-channel CV8U
-        (draw-text text img (cons 0 0) (cons dx dy) #:color '(255 255 255))
-        (draw-mat-onto-region-opaque img projection ?rotation ?ulhc ?lrhc)
-        (free-image img)))
+ do (let ((text (format #f "~a: ~a" ?pname ?value)))
+      (Wish ?r '(region text) text)))

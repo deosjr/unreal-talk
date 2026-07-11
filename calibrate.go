@@ -50,8 +50,11 @@ func calibrate() {
 	chesswindow := gocv.NewWindow("Chessboard")
 	defer chesswindow.Close()
 
+    projectionW, projectionH := 3840, 2160
+
 	// 1280x720 projection with aspect ratio 16:9
-	squareSize := 80
+    // 3840 x 2160 with same ratio
+	squareSize := 240 //80
 	cols, rows := 16, 9
 	patternSize := image.Pt(cols-1, rows-1) // inner corners
 	chesswindow.IMShow(generateChessboard(squareSize, cols, rows))
@@ -122,7 +125,7 @@ func calibrate() {
 
 	cr := CalibrationResult{}
 	cr.WebcamDimensions = image.Pt(img.Size()[1], img.Size()[0])
-	cr.ProjectionDimensions = image.Pt(1280, 720)
+	cr.ProjectionDimensions = image.Pt(projectionW, projectionH)
 	cr.Homography = [3][3]float64{}
 
 	for i := 0; i < 3; i++ {

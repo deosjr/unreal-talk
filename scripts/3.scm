@@ -57,8 +57,8 @@ first))
 ; can assume axis-aligned region to draw in
 (define (draw-wiki-text sxml rotation ulhc urhc llhc lrhc claim-func)
   (let* ((font 0) (scale 0.7) (thickness 1) (padding 2)
-         (img (create-image 1280 720 16)) ; 16 is 3-channel CV8U
-         (msk (create-image 1280 720 0)) ; 0 is 1-channel CV8U
+         (img (create-image projx projy 16)) ; 16 is 3-channel CV8U
+         (msk (create-image projx projy 0)) ; 0 is 1-channel CV8U
          (center (vec->ints (vec-add ulhc (vec-mul (vec-from-to ulhc lrhc) 0.5))))
          (cx (car center)) (cy (cdr center))
          (m (rotation-matrix-2d cx cy (- rotation) 1.0)) ; assumes counter-clockwise rotation!
@@ -93,8 +93,8 @@ first))
             (put-text img strptr nx ny font scale 255 255 255 thickness)  ; draw color to 3-channel img
             (fill-poly-img msk (cons nx nny) (cons (+ nx width) nny) (cons (+ nx width) ny) (cons nx ny) 255 255 255)
             (loop (cdr lst) (+ i 1) (+ nx width padding) (- ny height) nw))))
-    (warp-affine img img m 1280 720) ; officially doesn't support in-place modification?
-    (warp-affine msk msk m 1280 720)
+    (warp-affine img img m projx projy) ; officially doesn't support in-place modification?
+    (warp-affine msk msk m projx projy)
     (copy-from-to img projection msk)
     (free-image img)
     (free-image msk)

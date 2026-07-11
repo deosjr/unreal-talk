@@ -76,6 +76,7 @@
 ; Wrapped: page top-level code that throws (bad Claim args, undefined
 ; helpers, etc.) must not crash the system. Old proc stays in *procs*
 ; until next save; error fact is asserted so it can be displayed.
+; TODO: Claim (p) is present, work from there
 (define (page-moved-onto-table pid)
   (catch #t
     (lambda () (execute-page pid))

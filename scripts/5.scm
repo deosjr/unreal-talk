@@ -9,8 +9,8 @@
            (width (car testsize))
            (height (cadr testsize))
            (baseline (caddr testsize)) ; todo: use baseline
-           (temp-img (create-image 1280 720 16)) ; 16 is 3-channel CV8U
-           (temp-mask (create-image 1280 720 0)) ; 0 is 1-channel CV8U
+           (temp-img (create-image projx projy 16)) ; 16 is 3-channel CV8U
+           (temp-mask (create-image projx projy 0)) ; 0 is 1-channel CV8U
            (mid (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5)))
            (midx (inexact->exact (round (car mid)))) (midy (inexact->exact (round (cdr mid))))
            (m (rotation-matrix-2d midx midy (- ?rotation) 1.0)) ; assumes counter-clockwise rotation!
@@ -19,8 +19,8 @@
            (tx (inexact->exact (round (car textbottomleft)))) (ty (inexact->exact (round (cdr textbottomleft)))))
     (put-text temp-img (string->pointer str) tx ty 0 1.0 255 255 255 2)  ; draw color to 3-channel img
     (put-text temp-mask (string->pointer str) tx ty 0 1.0 255 255 255 2) ; draw white to 1-channel mask
-    (warp-affine temp-img temp-img m 1280 720) ; officially doesn't support in-place modification?
-    (warp-affine temp-mask temp-mask m 1280 720)
+    (warp-affine temp-img temp-img m projx projy) ; officially doesn't support in-place modification?
+    (warp-affine temp-mask temp-mask m projx projy)
     (copy-from-to temp-img projection temp-mask)
     (free-image temp-img)
     (free-image temp-mask)

@@ -23,6 +23,7 @@
 ;
 ; So at page top level: plain Remember means "reset on every arrival",
 ; #:default #t means "seed once, persist thereafter".
+; TODO: It is an error to remember on an absent object
 (define* (remember! on id key value #:key (default #f))
   (unless (and default
                (or (hash-get-handle *memories* (list on id key))

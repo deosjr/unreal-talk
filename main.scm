@@ -10,10 +10,10 @@
 (define ft (create-freetype (string->pointer font-path)))
 ;(destroy-freetype ft)
 
-(define font-height 10)
+(define font-height 20)
 (define textsize (ft-text-size ft "gh" font-height))
 (define line-height (+ (cadr textsize) 8)) ; 8 padding pixels
-(define char-width (inexact->exact (round (/ (car textsize) 2)))) ; assumes mono font! also, off-by-one??
+(define char-width (+ (quotient (car textsize) 2) 1)) ; assumes mono font! also, off-by-one??
 
 (define (vec-add p q)
   (let ((px (car p)) (py (cdr p))

@@ -35,6 +35,7 @@
     (let ((patches (list ?a ?b ?c ?e ?h ?g ?f ?d)))
       (for-each (lambda (x)
         (Wish x 'outlined 'white)
+        (Claim x '(region type) 'reus)
       ) patches)
 
       (for-each (lambda (i)
@@ -50,6 +51,10 @@
     )
 )
 
-(When ((?g (region name) a)
-       (?r adjacent ?g))
+(When ((?o (region name) a)
+       (?r adjacent ?o))
  do (Wish ?r 'outlined 'blue))
+
+
+(When ((?o (region name) a))
+ do (Wish ?o 'labeled "A"))

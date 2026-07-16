@@ -28,6 +28,13 @@
            (center (vec->ints (vec-add mid (vec-mul (vec-from-to ?llhc ?ulhc) 2.0)))))
       (draw-text-centered ?str center ?rotation)))
 
+(When ((?someone wishes (?r labeled ?str))
+       (?r (region points) (?ulhc ?urhc ?llhc ?lrhc))
+       (?r (region rotation) ?rotation))
+ do (let* ((mid (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5)))
+           (center (vec->ints mid)))
+      (draw-text-centered ?str center ?rotation)))
+
 (When ((?someone wishes (?r subtitled ?str))
        (?r (region points) (?ulhc ?urhc ?llhc ?lrhc))
        (?r (region rotation) ?rotation))
@@ -38,6 +45,8 @@
 (When ((?someone wishes (?p titled ?str))
        (?p (region tag) ?r))
  do (Wish ?r 'titled ?str))
+
+; don't label pages, it interferes with tag detection
 
 (When ((?someone wishes (?p subtitled ?str))
        (?p (region tag) ?r))

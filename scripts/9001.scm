@@ -21,19 +21,27 @@
     (copy-from-to temp-img projection temp-msk)
     (free-images temp-img temp-msk m)))
 
-(When ((?someone wishes (?p titled ?str))
-       (?p (page points) (?ulhc ?urhc ?llhc ?lrhc))
-       (?p (page rotation) ?rotation))
+(When ((?someone wishes (?r titled ?str))
+       (?r (region points) (?ulhc ?urhc ?llhc ?lrhc))
+       (?r (region rotation) ?rotation))
  do (let* ((mid (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5)))
            (center (vec->ints (vec-add mid (vec-mul (vec-from-to ?llhc ?ulhc) 2.0)))))
       (draw-text-centered ?str center ?rotation)))
 
-(When ((?someone wishes (?p subtitled ?str))
-       (?p (page points) (?ulhc ?urhc ?llhc ?lrhc))
-       (?p (page rotation) ?rotation))
+(When ((?someone wishes (?r subtitled ?str))
+       (?r (region points) (?ulhc ?urhc ?llhc ?lrhc))
+       (?r (region rotation) ?rotation))
  do (let* ((mid (vec-add ?ulhc (vec-mul (vec-from-to ?ulhc ?lrhc) 0.5)))
            (center (vec->ints (vec-add mid (vec-mul (vec-from-to ?ulhc ?llhc) 2.0)))))
       (draw-text-centered ?str center ?rotation)))
+
+(When ((?someone wishes (?p titled ?str))
+       (?p (region tag) ?r))
+ do (Wish ?r 'titled ?str))
+
+(When ((?someone wishes (?p subtitled ?str))
+       (?p (region tag) ?r))
+ do (Wish ?r 'subtitled ?str))
 
 ; takes axis-aligned region points
 ; text can be a string, but draw-text expects list of strings

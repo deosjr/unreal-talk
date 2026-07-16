@@ -35,3 +35,7 @@
 ; old region format, deprecated
 (When ((?p (region outline) (?ulhc ?urhc ?llhc ?lrhc)))
  do (draw-outline 'white 2 (list ?ulhc ?urhc ?llhc ?lrhc)))
+
+(When ((?someone wishes (?r outlined ?color))
+       (?r (region points) ?pts))
+ do (draw-outline ?color 2 ?pts))

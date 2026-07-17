@@ -31,7 +31,6 @@
        (this (region g) ?g)
        (this (region h) ?h))
  do 
-   ; (Wish ?a 'outlined 'green)
     (let ((patches (list ?a ?b ?c ?e ?h ?g ?f ?d)))
       (for-each (lambda (x)
         (Wish x 'outlined 'white)

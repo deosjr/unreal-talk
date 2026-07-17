@@ -556,5 +556,6 @@
       (if (not (hash-ref b key #f)) (hash-set! m key #t)))
     (hashtable-keys a)) m))
 
+; hash-table-keys not available?
 (define (hashtable-keys ht)
   (hash-fold (lambda (k v acc) (cons k acc)) '() ht))

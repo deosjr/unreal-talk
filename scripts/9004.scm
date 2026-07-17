@@ -9,14 +9,15 @@
 ; Because BASE is just four corners, regions can now be built relative to other
 ; regions, not only the page's own points.
 
-; a region is _uniquely_ defined by a page id (owner) and a set of corner points
+; a region is _uniquely_ defined by a page id (owner) and a name 
 ; the region id is expected to be treated as an opaque identifier however
-(define (region-id page-id points) (list 'region page-id points))
+; NOTE: name is unqiue, type is not. previously name was equal to type!
+(define (region-id page-id name) (list 'region page-id name))
 
 (When ((?someone wishes (?p (region ?name) ?points))
        ; make sure ?p is actually on the table
        (?p (page rotation) ?rotation)) ; clockwise rotation
- do (let* ((rid (region-id ?p ?points))
+ do (let* ((rid (region-id ?p ?name))
            (ulhc (car ?points)) (urhc (cadr ?points))
            (llhc (caddr ?points)) (lrhc (cadddr ?points))
            (aa-pts (rotate-rect ulhc urhc llhc lrhc ?rotation)))
